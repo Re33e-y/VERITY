@@ -23,52 +23,27 @@ const fallbackRules = [
   { id: "rule-terminology", rule_name: "Terminology" },
 ]
 
-async function loadReviewContext() {
-  if (!supabase) {
-    return { rules: fallbackRules, facts: [] as Array<Record<string, unknown>> }
-  }
-
-  try {
-    const [{ data: rules }, { data: facts }] = await Promise.all([
-      supabase.from("rules").select("*"),
-      supabase.from("facts").select("*"),
-    ])
-
-    return {
-      rules: Array.isArray(rules) && rules.length > 0 ? rules : fallbackRules,
-      facts: Array.isArray(facts) ? facts : [],
-    }
-  } catch {
-    return { rules: fallbackRules, facts: [] as Array<Record<string, unknown>> }
-  }
-}
-
 function toFinding(
   ruleId: string | null,
   verdict: string,
   text: string,
   start: number,
   explanation: string,
-  suggestedFix: string,
-  grade = "D",
-  source: "rule" | "ai" = "rule",
-  factId: string | null = null
+  suggestedFix: string
 ): FindingPayload {
-  const end = start + text.length
-
   return {
-    id: `${verdict}-${start}-${end}`,
+    id: `${verdict}-${start}-${start + text.length}`,
     span: {
       start,
-      end,
+      end: start + text.length,
       text,
     },
     rule_id: ruleId,
-    fact_id: factId,
+    fact_id: null,
     canon_version: 1,
     verdict,
-    grade,
-    source,
+    grade: "D",
+    source: "rule",
     explanation,
     suggested_fix: suggestedFix,
   }
@@ -83,15 +58,53 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Content is required" }, { status: 400 })
     }
 
-    const { rules, facts } = await loadReviewContext()
+    let fetchedRules: Array<{ id: string; rule_name?: string }> | null = null
+    let facts: Array<Record<string, unknown>> | null = null
+    const persistenceIssues: string[] = []
+
+    if (supabase) {
+      try {
+        const [{ data: rulesData, error: rulesErr }, { data: factsData, error: factsErr }] =
+          await Promise.all([
+            supabase.from("rules").select("*"),
+            supabase.from("facts").select("*"),
+          ])
+
+        if (rulesErr) {
+          console.error("Rules fetch error:", rulesErr)
+          persistenceIssues.push(`Could not load rules: ${rulesErr.message}`)
+        } else {
+          fetchedRules = rulesData
+        }
+
+        if (factsErr) {
+          console.error("Facts fetch error:", factsErr)
+          persistenceIssues.push(`Could not load facts: ${factsErr.message}`)
+        } else {
+          facts = factsData
+        }
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unknown Supabase connection error."
+        console.error("Supabase context fetch error:", error)
+        persistenceIssues.push(`Could not connect to Supabase: ${message}`)
+      }
+    } else {
+      persistenceIssues.push("Supabase is not configured; this review will not be saved.")
+    }
+
+    const rules = Array.isArray(fetchedRules) && fetchedRules.length > 0
+      ? fetchedRules
+      : fallbackRules
     const lower = content.toLowerCase()
     const findings: FindingPayload[] = []
 
     const superlativePatterns = ["the best", "#1", "industry-leading"]
-    const superlativeMatch = superlativePatterns.find((pattern) => lower.includes(pattern))
+    const superlativeMatch = superlativePatterns.find((pattern) =>
+      lower.includes(pattern)
+    )
     if (superlativeMatch) {
       const start = lower.indexOf(superlativeMatch)
-      const text = content.slice(start, start + superlativeMatch.length)
       const matchedRule = rules.find((rule: { rule_name?: string }) =>
         rule.rule_name?.toLowerCase().includes("superlatives")
       )
@@ -100,7 +113,7 @@ export async function POST(req: Request) {
         toFinding(
           matchedRule?.id ?? null,
           "absolute_claim",
-          text,
+          content.slice(start, start + superlativeMatch.length),
           start,
           "Content uses absolute or superlative claims without explicit citation.",
           "Specify the verified benchmark or qualification instead of absolute terms."
@@ -108,10 +121,12 @@ export async function POST(req: Request) {
       )
     }
 
-    const namingMatch = ["proof gate", "verification bot"].find((pattern) => lower.includes(pattern))
-    if (namingMatch) {
-      const start = lower.indexOf(namingMatch)
-      const text = content.slice(start, start + namingMatch.length)
+    const terminologyPatterns = ["verification bot", "proof gate"]
+    const terminologyMatch = terminologyPatterns.find((pattern) =>
+      lower.includes(pattern)
+    )
+    if (terminologyMatch) {
+      const start = lower.indexOf(terminologyMatch)
       const matchedRule = rules.find((rule: { rule_name?: string }) =>
         rule.rule_name?.toLowerCase().includes("terminology")
       )
@@ -120,7 +135,7 @@ export async function POST(req: Request) {
         toFinding(
           matchedRule?.id ?? null,
           "brand_terminology_mismatch",
-          text,
+          content.slice(start, start + terminologyMatch.length),
           start,
           'Improper casing or naming detected. The approved term is "ProofGate".',
           'Replace references with "ProofGate".'
@@ -130,7 +145,7 @@ export async function POST(req: Request) {
 
     const score = Math.max(0, 100 - findings.length * 25)
     const status = findings.length === 0 ? "completed" : "flagged"
-    const runId = `local-${Date.now()}`
+    let runId: string | null = null
 
     if (supabase) {
       try {
@@ -144,28 +159,39 @@ export async function POST(req: Request) {
           .select()
           .single()
 
-        if (!runError && run) {
+        if (runError) {
+          console.error("review_runs insert error:", runError)
+          persistenceIssues.push(`Could not save review: ${runError.message}`)
+        } else if (!run) {
+          persistenceIssues.push("Supabase did not return the saved review run.")
+        } else {
+          runId = run.id
+
           if (findings.length > 0) {
             const findingsToInsert = findings.map((finding) => ({
-              ...finding,
               review_run_id: run.id,
+              rule_id: finding.rule_id,
               issue_type: finding.verdict,
+              explanation: finding.explanation,
+              suggested_fix: finding.suggested_fix,
             }))
 
-            await supabase.from("findings").insert(findingsToInsert)
+            const { error: findingsError } = await supabase
+              .from("findings")
+              .insert(findingsToInsert)
+            if (findingsError) {
+              console.error("findings insert error:", findingsError)
+              persistenceIssues.push(
+                `Could not save findings: ${findingsError.message}`
+              )
+            }
           }
-
-          return NextResponse.json({
-            runId: run.id,
-            score,
-            status,
-            findings,
-            rulesChecked: rules.length,
-            factsAvailable: facts.length,
-          })
         }
-      } catch {
-        // Fall through to the client-safe response below when Supabase is unavailable.
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Unknown Supabase connection error."
+        console.error("Supabase save error:", error)
+        persistenceIssues.push(`Could not save review to Supabase: ${message}`)
       }
     }
 
@@ -174,10 +200,23 @@ export async function POST(req: Request) {
       score,
       status,
       findings,
-      rulesChecked: rules.length,
-      factsAvailable: facts.length,
+      rulesChecked: fetchedRules?.length ?? fallbackRules.length,
+      factsAvailable: facts?.length ?? 0,
+      persistence: {
+        status:
+          persistenceIssues.length === 0
+            ? "saved"
+            : runId
+              ? "partial"
+              : "not_saved",
+        message:
+          persistenceIssues.length > 0
+            ? persistenceIssues.join(" ")
+            : "Review and findings saved to Supabase.",
+      },
     })
   } catch (error) {
+    console.error("API handler error:", error)
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "An unexpected error occurred.",

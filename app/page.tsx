@@ -21,12 +21,16 @@ interface Finding {
 }
 
 interface ReviewResult {
-  runId: string
+  runId: string | null
   score: number
   status: string
   rulesChecked: number
   factsAvailable: number
   findings: Finding[]
+  persistence: {
+    status: "saved" | "partial" | "not_saved"
+    message: string
+  }
 }
 
 export default function Home() {
@@ -153,9 +157,11 @@ export default function Home() {
                 <h2 className="text-lg font-semibold text-white">
                   Audit Summary
                 </h2>
-                <p className="text-xs text-slate-400 font-mono mt-1">
-                  Run ID: {result.runId}
-                </p>
+                {result.runId && (
+                  <p className="text-xs text-slate-400 font-mono mt-1">
+                    Run ID: {result.runId}
+                  </p>
+                )}
               </div>
 
               <div className="text-right">
@@ -166,6 +172,17 @@ export default function Home() {
                   {result.status}
                 </span>
               </div>
+            </div>
+
+            <div
+              role="status"
+              className={`rounded-lg border p-3 text-sm ${
+                result.persistence.status === "saved"
+                  ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300"
+                  : "border-amber-500/30 bg-amber-500/10 text-amber-200"
+              }`}
+            >
+              {result.persistence.message}
             </div>
 
             <div className="grid grid-cols-2 gap-3 border-y border-slate-800 py-4">
