@@ -1,227 +1,244 @@
+import { createHash, randomUUID } from "node:crypto"
 import { NextResponse } from "next/server"
+import { callGemini } from "@/lib/engine/gemini"
+import { reviewContent, supabaseCache, type Policy } from "@/lib/engine/router"
 import { supabase } from "@/lib/supabase"
+import type { Fact, ReviewEngine, Rule, Verdict } from "@/types/engine"
 
-interface FindingPayload {
-  id: string
-  span: {
-    start: number
-    end: number
-    text: string
-  }
-  rule_id: string | null
-  fact_id: string | null
-  canon_version: number
-  verdict: string
-  grade: string
-  source: "rule" | "ai"
-  explanation: string
-  suggested_fix: string | null
+export const maxDuration = 60
+
+const MAX_CHARS = 5000
+const MAX_REVIEWS_PER_MINUTE = 20
+const PROMPT_VERSION = "router-v1"
+
+const PENALTY = {
+  rule: { high: 25, medium: 15, low: 5, info: 0 },
+  claim: {
+    Contradicted: 20,
+    Outdated: 15,
+    Unsupported: 8,
+    "Needs legal review": 10,
+    Supported: 0,
+  },
+} satisfies {
+  rule: Record<"high" | "medium" | "low" | "info", number>
+  claim: Record<Verdict, number>
 }
 
-const fallbackRules = [
-  { id: "rule-superlatives", rule_name: "Superlatives" },
-  { id: "rule-terminology", rule_name: "Terminology" },
-]
+function messageFrom(error: unknown) {
+  return error instanceof Error ? error.message : "An unexpected error occurred."
+}
 
-function toFinding(
-  ruleId: string | null,
-  verdict: string,
-  text: string,
-  start: number,
-  explanation: string,
-  suggestedFix: string
-): FindingPayload {
-  return {
-    id: `${verdict}-${start}-${start + text.length}`,
-    span: {
-      start,
-      end: start + text.length,
-      text,
-    },
-    rule_id: ruleId,
-    fact_id: null,
-    canon_version: 1,
-    verdict,
-    grade: "D",
-    source: "rule",
-    explanation,
-    suggested_fix: suggestedFix,
-  }
+function isExpired(item: { expires_at: string | null }, now: number) {
+  if (!item.expires_at) return false
+  const expiresAt = Date.parse(item.expires_at)
+  return !Number.isFinite(expiresAt) || expiresAt <= now
+}
+
+// LLM_POLICY: auto (default) | thorough | off. A legacy LLM_MODE=off is still honored.
+function policyFromEnv(): Policy {
+  const raw = (
+    process.env.LLM_POLICY ??
+    (process.env.LLM_MODE?.toLowerCase() === "off" ? "off" : "auto")
+  ).toLowerCase()
+  return raw === "off" ? "off" : raw === "thorough" ? "thorough" : "auto"
 }
 
 export async function POST(req: Request) {
+  const body: unknown = await req.json().catch(() => null)
+  const content =
+    typeof body === "object" &&
+    body !== null &&
+    "content" in body &&
+    typeof body.content === "string"
+      ? body.content.trim()
+      : ""
+
+  if (!content) {
+    return NextResponse.json(
+      { error: "content is required" },
+      { status: 400 }
+    )
+  }
+
+  if (content.length > MAX_CHARS) {
+    return NextResponse.json(
+      { error: `content exceeds ${MAX_CHARS} characters` },
+      { status: 413 }
+    )
+  }
+
   try {
-    const body = await req.json().catch(() => null)
-    const content = typeof body?.content === "string" ? body.content.trim() : ""
+    const since = new Date(Date.now() - 60_000).toISOString()
+    const { count, error: rateLimitError } = await supabase
+      .from("review_runs")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", since)
 
-    if (!content) {
-      return NextResponse.json({ error: "Content is required" }, { status: 400 })
+    if (rateLimitError) {
+      console.error("Review rate-limit check failed:", rateLimitError)
+      return NextResponse.json(
+        { error: "Could not verify review rate limit. Try again shortly." },
+        { status: 503 }
+      )
     }
 
-    let fetchedRules: Array<{ id: string; rule_name?: string }> | null = null
-    let facts: Array<Record<string, unknown>> | null = null
-    const persistenceIssues: string[] = []
+    if ((count ?? 0) >= MAX_REVIEWS_PER_MINUTE) {
+      return NextResponse.json(
+        { error: "Too many reviews right now. Try again in a minute." },
+        { status: 429 }
+      )
+    }
 
-    if (supabase) {
-      try {
-        const [{ data: rulesData, error: rulesErr }, { data: factsData, error: factsErr }] =
-          await Promise.all([
-            supabase.from("rules").select("*"),
-            supabase.from("facts").select("*"),
-          ])
+    const [rulesResult, factsResult] = await Promise.all([
+      supabase.from("rules").select("*").eq("active", true),
+      supabase.from("facts").select("*"),
+    ])
 
-        if (rulesErr) {
-          console.error("Rules fetch error:", rulesErr)
-          persistenceIssues.push(`Could not load rules: ${rulesErr.message}`)
-        } else {
-          fetchedRules = rulesData
-        }
+    const contextError = rulesResult.error ?? factsResult.error
+    if (contextError) {
+      return NextResponse.json({ error: contextError.message }, { status: 500 })
+    }
 
-        if (factsErr) {
-          console.error("Facts fetch error:", factsErr)
-          persistenceIssues.push(`Could not load facts: ${factsErr.message}`)
-        } else {
-          facts = factsData
-        }
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Unknown Supabase connection error."
-        console.error("Supabase context fetch error:", error)
-        persistenceIssues.push(`Could not connect to Supabase: ${message}`)
+    const now = Date.now()
+    const allRules = (rulesResult.data ?? []) as Rule[]
+    const allFacts = (factsResult.data ?? []) as Fact[]
+    const rules = allRules.filter((rule) => !isExpired(rule, now))
+    const canonVersion = Math.max(
+      1,
+      ...rules.map((rule) => rule.canon_version)
+    )
+
+    // Call-budget router: rules + offline engine first (0 calls), then at most
+    // one batched judge call and one batched verifier call, with caching.
+    const result = await reviewContent({
+      content,
+      rules,
+      facts: allFacts,
+      canon: canonVersion,
+      llm: (system, user, role) =>
+        callGemini(
+          system,
+          user,
+          role === "verifier" ? process.env.VERIFIER_MODEL : undefined
+        ),
+      cache: supabaseCache(supabase),
+      policy: policyFromEnv(),
+    })
+
+    const findings = result.findings
+    const degraded = result.route === "degraded"
+    const aiStatus: "ok" | "failed" = degraded ? "failed" : "ok"
+    const aiError = degraded ? result.aiError : undefined
+    // "offline" drives the degraded-mode badge in the UI; route tells the real story
+    const engine: ReviewEngine = degraded ? "offline" : "llm"
+
+    const identifiedFindings = findings.map((finding) => ({
+      ...finding,
+      id: randomUUID(),
+    }))
+    const visibleFindings = identifiedFindings.filter(
+      (finding) => finding.grade !== "D"
+    )
+    const penalty = visibleFindings.reduce((total, finding) => {
+      if (finding.verdict) {
+        return total + PENALTY.claim[finding.verdict]
       }
-    } else {
-      persistenceIssues.push("Supabase is not configured; this review will not be saved.")
+      return total + (finding.grade === "C" ? 5 : PENALTY.rule[finding.severity])
+    }, 0)
+    const calculatedScore = Math.max(0, 100 - penalty)
+    const score = degraded ? null : calculatedScore
+    const status = degraded
+      ? "partial"
+      : visibleFindings.some((finding) => finding.severity !== "info")
+        ? "flagged"
+        : "completed"
+    const hiddenGradeD =
+      identifiedFindings.length - visibleFindings.length + result.rejected
+
+    const snapshot = {
+      content_hash: createHash("sha256").update(content).digest("hex"),
+      canon_version: canonVersion,
+      rule_codes: rules.map((rule) => rule.code),
+      fact_codes: allFacts.map((fact) => fact.code),
+      model:
+        result.llmCalls > 0 ? process.env.GEMINI_MODEL ?? "gemini-2.5-flash" : null,
+      verifier_model:
+        result.llmCalls > 1 ? process.env.VERIFIER_MODEL ?? null : null,
+      prompt_version: PROMPT_VERSION,
+      engine,
+      route: result.route,
+      llm_calls: result.llmCalls,
+      cached: result.cached,
+      ai_status: aiStatus,
+      findings: identifiedFindings,
     }
 
-    const rules = Array.isArray(fetchedRules) && fetchedRules.length > 0
-      ? fetchedRules
-      : fallbackRules
-    const lower = content.toLowerCase()
-    const findings: FindingPayload[] = []
+    const runResult = await supabase
+      .from("review_runs")
+      .insert({
+        target_content: content,
+        score,
+        status,
+        canon_version: canonVersion,
+        content_hash: snapshot.content_hash,
+        snapshot,
+      })
+      .select("id")
+      .single()
 
-    const superlativePatterns = ["the best", "#1", "industry-leading"]
-    const superlativeMatch = superlativePatterns.find((pattern) =>
-      lower.includes(pattern)
-    )
-    if (superlativeMatch) {
-      const start = lower.indexOf(superlativeMatch)
-      const matchedRule = rules.find((rule: { rule_name?: string }) =>
-        rule.rule_name?.toLowerCase().includes("superlatives")
+    let persistence: {
+      status: "saved" | "partial" | "not_saved"
+      reason?: string
+    } = { status: "saved" }
+
+    if (runResult.error) {
+      console.error("Review run insert failed:", runResult.error)
+      persistence = {
+        status: "not_saved",
+        reason: runResult.error.message,
+      }
+    } else if (!runResult.data) {
+      persistence = {
+        status: "not_saved",
+        reason: "Supabase did not return the saved review run.",
+      }
+    } else if (identifiedFindings.length > 0) {
+      const insertResult = await supabase.from("findings").insert(
+        identifiedFindings.map((finding) => ({
+          ...finding,
+          review_run_id: runResult.data.id,
+        }))
       )
 
-      findings.push(
-        toFinding(
-          matchedRule?.id ?? null,
-          "absolute_claim",
-          content.slice(start, start + superlativeMatch.length),
-          start,
-          "Content uses absolute or superlative claims without explicit citation.",
-          "Specify the verified benchmark or qualification instead of absolute terms."
-        )
-      )
-    }
-
-    const terminologyPatterns = ["verification bot", "proof gate"]
-    const terminologyMatch = terminologyPatterns.find((pattern) =>
-      lower.includes(pattern)
-    )
-    if (terminologyMatch) {
-      const start = lower.indexOf(terminologyMatch)
-      const matchedRule = rules.find((rule: { rule_name?: string }) =>
-        rule.rule_name?.toLowerCase().includes("terminology")
-      )
-
-      findings.push(
-        toFinding(
-          matchedRule?.id ?? null,
-          "brand_terminology_mismatch",
-          content.slice(start, start + terminologyMatch.length),
-          start,
-          'Improper casing or naming detected. The approved term is "ProofGate".',
-          'Replace references with "ProofGate".'
-        )
-      )
-    }
-
-    const score = Math.max(0, 100 - findings.length * 25)
-    const status = findings.length === 0 ? "completed" : "flagged"
-    let runId: string | null = null
-
-    if (supabase) {
-      try {
-        const { data: run, error: runError } = await supabase
-          .from("review_runs")
-          .insert({
-            target_content: content,
-            score,
-            status,
-          })
-          .select()
-          .single()
-
-        if (runError) {
-          console.error("review_runs insert error:", runError)
-          persistenceIssues.push(`Could not save review: ${runError.message}`)
-        } else if (!run) {
-          persistenceIssues.push("Supabase did not return the saved review run.")
-        } else {
-          runId = run.id
-
-          if (findings.length > 0) {
-            const findingsToInsert = findings.map((finding) => ({
-              review_run_id: run.id,
-              rule_id: finding.rule_id,
-              issue_type: finding.verdict,
-              explanation: finding.explanation,
-              suggested_fix: finding.suggested_fix,
-            }))
-
-            const { error: findingsError } = await supabase
-              .from("findings")
-              .insert(findingsToInsert)
-            if (findingsError) {
-              console.error("findings insert error:", findingsError)
-              persistenceIssues.push(
-                `Could not save findings: ${findingsError.message}`
-              )
-            }
-          }
+      if (insertResult.error) {
+        console.error("Findings insert failed:", insertResult.error)
+        persistence = {
+          status: "partial",
+          reason: insertResult.error.message,
         }
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Unknown Supabase connection error."
-        console.error("Supabase save error:", error)
-        persistenceIssues.push(`Could not save review to Supabase: ${message}`)
       }
     }
 
     return NextResponse.json({
-      runId,
+      runId: runResult.data?.id ?? null,
       score,
       status,
-      findings,
-      rulesChecked: fetchedRules?.length ?? fallbackRules.length,
-      factsAvailable: facts?.length ?? 0,
-      persistence: {
-        status:
-          persistenceIssues.length === 0
-            ? "saved"
-            : runId
-              ? "partial"
-              : "not_saved",
-        message:
-          persistenceIssues.length > 0
-            ? persistenceIssues.join(" ")
-            : "Review and findings saved to Supabase.",
-      },
+      canonVersion,
+      engine,
+      route: result.route,
+      llmCalls: result.llmCalls,
+      cached: result.cached,
+      findings: visibleFindings.sort(
+        (left, right) => (left.span_start ?? 0) - (right.span_start ?? 0)
+      ),
+      hiddenGradeD,
+      ai: { status: aiStatus, error: aiError },
+      persistence,
+      evaluated: { rules: rules.length, facts: allFacts.length },
     })
   } catch (error) {
-    console.error("API handler error:", error)
-    return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : "An unexpected error occurred.",
-      },
-      { status: 500 }
-    )
+    console.error("Review API failed:", error)
+    return NextResponse.json({ error: messageFrom(error) }, { status: 500 })
   }
 }
