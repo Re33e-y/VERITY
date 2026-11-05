@@ -6,11 +6,13 @@ export default function Home() {
   const [content, setContent] = useState("")
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<any>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const handleReview = async () => {
     if (!content.trim()) return
     setLoading(true)
     setResult(null)
+    setErrorMsg(null)
 
     try {
       const res = await fetch("/api/review", {
@@ -19,9 +21,13 @@ export default function Home() {
         body: JSON.stringify({ content }),
       })
       const data = await res.json()
-      setResult(data)
+      if (!res.ok || data.error) {
+        setErrorMsg(data.error || "An unknown error occurred on the server.")
+      } else {
+        setResult(data)
+      }
     } catch (e: any) {
-      alert("Error: " + e.message)
+      setErrorMsg(e.message)
     } finally {
       setLoading(false)
     }
@@ -60,6 +66,13 @@ export default function Home() {
         >
           {loading ? "Auditing via ProofGate..." : "Run Governance Audit"}
         </button>
+
+        {errorMsg && (
+          <div className="mt-4 p-4 bg-red-950/60 border border-red-500/50 rounded-xl text-red-200 text-sm space-y-1">
+            <div className="font-bold text-red-400">Server Error:</div>
+            <pre className="font-mono text-xs whitespace-pre-wrap">{errorMsg}</pre>
+          </div>
+        )}
 
         {result && (
           <div className="mt-8 border border-slate-800 bg-slate-900/60 rounded-xl p-6 space-y-4">
