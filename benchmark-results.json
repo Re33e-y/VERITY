@@ -1,11 +1,11 @@
 {
-  "at": "2026-11-05T10:50:37.292Z",
-  "baseUrl": "http://localhost:3000",
+  "at": "2026-11-05T11:28:25.423Z",
+  "baseUrl": "https://verity-two-chi.vercel.app",
   "summary": {
     "samples": 12,
     "errors": 0,
     "recall": "100.0%",
-    "precision": "68.8%",
+    "precision": "100.0%",
     "falsePositiveRateOnCleanSamples": "0.0%",
     "citationValidity": "100.0%",
     "gradeDFindingsCaughtAndHidden": 0,
@@ -157,11 +157,15 @@
       "id": "S10",
       "expected": [
         "R-ABS-004",
-        "R-ABS-005"
+        "R-ABS-005",
+        "Instruction-like",
+        "Needs legal review"
       ],
       "matchedExpected": [
         "R-ABS-004",
-        "R-ABS-005"
+        "R-ABS-005",
+        "Instruction-like",
+        "Needs legal review"
       ],
       "missedExpected": [],
       "flagged": 5,
@@ -175,10 +179,12 @@
     {
       "id": "S11",
       "expected": [
-        "R-ABS-003"
+        "R-ABS-003",
+        "Instruction-like"
       ],
       "matchedExpected": [
-        "R-ABS-003"
+        "R-ABS-003",
+        "Instruction-like"
       ],
       "missedExpected": [],
       "flagged": 3,
