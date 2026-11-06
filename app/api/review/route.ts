@@ -2,7 +2,10 @@ import { createHash, randomUUID } from "node:crypto"
 import { NextResponse } from "next/server"
 import { callGemini } from "@/lib/engine/gemini"
 import { reviewContent, supabaseCache, type Policy } from "@/lib/engine/router"
+import { createReviewEngine, loadEngineConfig } from "@/lib/review/env"
+import { toApiResponse, toSnapshot, toUiFinding } from "@/lib/review/adapter"
 import { supabase } from "@/lib/supabase"
+import type { BrandFact, BrandRule } from "@/lib/review/types"
 import type { Fact, ReviewEngine, Rule, Verdict } from "@/types/engine"
 
 export const maxDuration = 60
@@ -10,6 +13,23 @@ export const maxDuration = 60
 const MAX_CHARS = 5000
 const MAX_REVIEWS_PER_MINUTE = 20
 const PROMPT_VERSION = "router-v1"
+const pipelineV2 = createReviewEngine({
+  env: process.env,
+  supabase,
+  onGatewayEvent: (event) => {
+    console.info(
+      `[VERITY gateway] ${JSON.stringify({
+        type: event.type,
+        provider: event.provider,
+        model: event.model,
+        kind: event.kind,
+        status: event.status,
+        latencyMs: event.latencyMs,
+      })}`
+    )
+  },
+})
+const pipelineV2MaxChars = loadEngineConfig(process.env).maxContentChars
 
 const PENALTY = {
   rule: { high: 25, medium: 15, low: 5, info: 0 },
@@ -44,6 +64,131 @@ function policyFromEnv(): Policy {
   return raw === "off" ? "off" : raw === "thorough" ? "thorough" : "auto"
 }
 
+function severityForPipeline(severity: string): BrandRule["severity"] {
+  if (severity === "critical" || severity === "high") return "high"
+  if (severity === "warning" || severity === "medium") return "medium"
+  return "low"
+}
+
+function mapRules(rules: Rule[]): BrandRule[] {
+  return rules.map((rule) => ({
+    id: rule.id,
+    title: `${rule.code}: ${rule.description}`,
+    description: rule.description,
+    severity: severityForPipeline(rule.severity),
+    ...(rule.pattern ? { bannedTerms: [rule.pattern] } : {}),
+    ...(rule.preferred ? { preferredTerms: [rule.preferred] } : {}),
+    expiresAt: rule.expires_at,
+    version: rule.canon_version,
+  }))
+}
+
+function mapFacts(facts: Fact[], now: number): BrandFact[] {
+  return facts.map((fact) => ({
+    id: fact.id,
+    statement: fact.statement,
+    status: isExpired(fact, now) ? "outdated" : "current",
+    expiresAt: fact.expires_at,
+    version: fact.canon_version,
+  }))
+}
+
+function latestVersion(versions: number[]): number {
+  return Math.max(1, ...versions)
+}
+
+async function reviewWithPipelineV2(
+  content: string,
+  rules: Rule[],
+  facts: Fact[],
+  canonVersion: number
+) {
+  const now = Date.now()
+  const brandRules = mapRules(rules)
+  const brandFacts = mapFacts(facts, now)
+  const rulesVersion = latestVersion(rules.map((rule) => rule.canon_version))
+  const factsVersion = latestVersion(facts.map((fact) => fact.canon_version))
+  const outcome = await pipelineV2.engine.review({
+    content,
+    context: { brandId: "proofgate", brandTerms: ["ProofGate", "Verity"] },
+    rules: brandRules,
+    facts: brandFacts,
+    rulesVersion,
+    factsVersion,
+  })
+  await pipelineV2.health.flush()
+
+  const uiFindings = outcome.findings
+    .map((finding) => toUiFinding(finding, canonVersion, randomUUID()))
+    .sort((left, right) => left.span_start - right.span_start)
+  const contentHash = createHash("sha256").update(content).digest("hex")
+  const snapshot = {
+    content_hash: contentHash,
+    canon_version: canonVersion,
+    rule_codes: rules.map((rule) => rule.code),
+    fact_codes: facts.map((fact) => fact.code),
+    model: outcome.llm.providers.find((provider) => provider.purpose === "judge")?.model ?? null,
+    verifier_model:
+      outcome.llm.providers.find((provider) => provider.purpose === "verifier")?.model ?? null,
+    prompt_version: outcome.versions.judgePrompt,
+    engine: outcome.route === "degraded" ? "offline" : "llm",
+    ai_status: outcome.llm.degradedReason === null ? "ok" : "failed",
+    ...toSnapshot(outcome),
+    findings: uiFindings,
+  }
+
+  const runResult = await supabase
+    .from("review_runs")
+    .insert({
+      target_content: content,
+      score: outcome.score,
+      status: outcome.status,
+      canon_version: canonVersion,
+      content_hash: contentHash,
+      snapshot,
+    })
+    .select("id")
+    .single()
+
+  let persistence: {
+    status: "saved" | "partial" | "not_saved"
+    reason?: string
+  } = { status: "saved" }
+
+  if (runResult.error) {
+    console.error("Review run insert failed:", runResult.error)
+    persistence = { status: "not_saved", reason: runResult.error.message }
+  } else if (!runResult.data) {
+    persistence = {
+      status: "not_saved",
+      reason: "Supabase did not return the saved review run.",
+    }
+  } else if (uiFindings.length > 0) {
+    const insertResult = await supabase.from("findings").insert(
+      uiFindings.map((finding) => ({
+        ...finding,
+        review_run_id: runResult.data.id,
+      }))
+    )
+
+    if (insertResult.error) {
+      console.error("Findings insert failed:", insertResult.error)
+      persistence = { status: "partial", reason: insertResult.error.message }
+    }
+  }
+
+  return NextResponse.json({
+    ...toApiResponse(outcome, canonVersion),
+    runId: runResult.data?.id ?? null,
+    canonVersion,
+    llmCalls: outcome.llm.calls,
+    findings: uiFindings,
+    hiddenGradeD: outcome.rejected.length,
+    persistence,
+    evaluated: { rules: rules.length, facts: facts.length },
+  })
+}
+
 export async function POST(req: Request) {
   const body: unknown = await req.json().catch(() => null)
   const content =
@@ -61,9 +206,11 @@ export async function POST(req: Request) {
     )
   }
 
-  if (content.length > MAX_CHARS) {
+  const maxChars =
+    process.env.REVIEW_PIPELINE === "v2" ? pipelineV2MaxChars : MAX_CHARS
+  if (content.length > maxChars) {
     return NextResponse.json(
-      { error: `content exceeds ${MAX_CHARS} characters` },
+      { error: `content exceeds ${maxChars} characters` },
       { status: 413 }
     )
   }
@@ -108,6 +255,10 @@ export async function POST(req: Request) {
       1,
       ...rules.map((rule) => rule.canon_version)
     )
+
+    if (process.env.REVIEW_PIPELINE === "v2") {
+      return await reviewWithPipelineV2(content, rules, allFacts, canonVersion)
+    }
 
     // Call-budget router: rules + offline engine first (0 calls), then at most
     // one batched judge call and one batched verifier call, with caching.
