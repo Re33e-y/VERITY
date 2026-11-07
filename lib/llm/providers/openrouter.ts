@@ -47,6 +47,7 @@ export function createOpenRouterProvider(config: OpenRouterConfig): LLMProvider 
           model,
           temperature: 0,
           max_tokens: 2048,
+          provider: { data_collection: "deny", zdr: true },
           messages: [
             { role: "system", content: input.system },
             { role: "user", content: input.prompt },

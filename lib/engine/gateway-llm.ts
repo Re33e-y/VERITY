@@ -90,6 +90,7 @@ async function callOpenRouter(
       body: JSON.stringify({
         model,
         temperature: 0,
+        provider: { data_collection: "deny", zdr: true },
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: system },

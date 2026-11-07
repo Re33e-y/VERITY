@@ -1,4 +1,5 @@
 import { makeFallbackLLM, resetCooldowns } from "../lib/engine/gateway-llm"
+import { createOpenRouterProvider } from "../lib/llm/providers/openrouter"
 
 const env = {
   GEMINI_API_KEY: "g",
@@ -8,7 +9,7 @@ const env = {
 }
 const orFetch =
   (content: string, status = 200) =>
-    (async () => ({
+    (async (_input: RequestInfo | URL, _init?: RequestInit) => ({
       ok: status === 200,
       status,
       json: async () => ({ choices: [{ message: { content } }] }),
@@ -52,7 +53,20 @@ void (async () => {
       g++
       throw new Error("Gemini request failed (429): quota")
     },
-    fetchFn: orFetch("```json\n{\"items\":[]}\n```"),
+    fetchFn: (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const request = JSON.parse(String(init?.body)) as {
+        provider?: { data_collection?: string; zdr?: boolean }
+      }
+      check(
+        "2 fallback requires data denial and ZDR",
+        request.provider?.data_collection === "deny" && request.provider.zdr === true
+      )
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ choices: [{ message: { content: "```json\n{\"items\":[]}\n```" } }] }),
+      }
+    }) as typeof fetch,
     ...lim,
   })
   await a.llm("s", "u", "judge")
@@ -156,6 +170,33 @@ void (async () => {
     msg = error instanceof Error ? error.message : String(error)
   }
   check("7 garbage output -> error", msg.startsWith("No LLM provider succeeded"), msg)
+
+  // 8 v2 provider applies the same OpenRouter data restrictions
+  const originalFetch = globalThis.fetch
+  const v2Request: { provider?: { data_collection?: string; zdr?: boolean } } = {}
+  globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+    Object.assign(v2Request, JSON.parse(String(init?.body)))
+    return new Response(JSON.stringify({ choices: [{ message: { content: '{"ok":true}' } }] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    })
+  }) as typeof fetch
+  try {
+    await createOpenRouterProvider({ apiKey: "test-key", model: "test/model" }).generate({
+      system: "test",
+      prompt: "test",
+      timeoutMs: 1000,
+      json: true,
+    })
+    check(
+      "8 v2 provider requires data denial and ZDR",
+      v2Request?.provider?.data_collection === "deny" && v2Request?.provider?.zdr === true
+    )
+  } catch {
+    check("8 v2 provider requires data denial and ZDR", false)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
 
   console.log(`\n${pass} passed, ${fail} failed`)
   if (fail) process.exitCode = 1

@@ -91,7 +91,7 @@ Of 42 reviews, 38 resolved locally with no model call and 4 went to the hybrid p
    GEMINI_API_KEY=YOUR_GEMINI_API_KEY
    GEMINI_MODEL=gemini-2.5-flash
    VERIFIER_MODEL=gemini-2.5-flash-lite
-   # Optional fallback for the default router path; both are required:
+   # Optional OpenRouter fallback; both are required:
    # OPENROUTER_API_KEY=
    # OPENROUTER_MODEL=
    # Optional v2-only provider settings:
@@ -110,8 +110,8 @@ Of 42 reviews, 38 resolved locally with no model call and 4 went to the hybrid p
    - `LLM_MODE=off` is still accepted as a legacy fallback.
    - `REVIEW_PIPELINE=v2` opts into the new provider pipeline; unset or any other value keeps the existing review path.
    - The v2 path uses the rule patterns/preferred terms and fact expiry dates from the existing canon tables. Run its migration before enabling it.
-   - In the default router, OpenRouter is an optional fallback after Gemini; set both `OPENROUTER_API_KEY` and `OPENROUTER_MODEL` to enable it. Cloudflare settings apply only to v2.
-   - Before sending any real or customer content to a third-party provider, review that provider's data-use policy and disclose the configured provider and model to users. Use synthetic samples for provider testing.
+   - OpenRouter fallback is implemented and tested with mocks, but disabled in production because no ZDR-compatible model is configured. When Gemini quota is exhausted, the app degrades to offline results and says so in the UI.
+   - Both OpenRouter paths require `data_collection: deny` and ZDR routing. Review the selected model/provider's data-use policy and disclose any configured provider and model to users. Use synthetic samples for provider testing. Cloudflare settings apply only to v2.
 
 3. Apply the Brand Canon and review schema in Supabase. The app expects tables such as `rules`, `facts`, `review_runs`, `findings`, and `decisions` to exist and contain the fields required for runtime evaluation.
 
@@ -143,7 +143,7 @@ The review API returns both audit status and persistence results separately. A r
 
 Decision submissions require a valid `finding_id`, one of `accepted`, `dismissed`, or `overridden`, and a reason between 5 and 1,000 characters. The API verifies that the finding exists before saving the decision. Its database relationship is finding-based; the review run is resolved through the finding's `review_run_id`.
 
-If Gemini quota is exhausted and no configured fallback provider succeeds, the review degrades to deterministic and offline findings, withholds the overall score, and displays an AI-unavailable notice instead of crashing.
+If Gemini quota is exhausted, the production app degrades to deterministic and offline findings, withholds the overall score, and displays an AI-unavailable notice. OpenRouter fallback is implemented and tested with mocks, but is disabled in production because no ZDR-compatible model is configured.
 
 ## Smoke test
 
