@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto"
 import { NextResponse } from "next/server"
-import { callGemini } from "@/lib/engine/gemini"
+import { makeFallbackLLM } from "@/lib/engine/gateway-llm"
 import { reviewContent, supabaseCache, type Policy } from "@/lib/engine/router"
 import { createReviewEngine, loadEngineConfig } from "@/lib/review/env"
 import { toApiResponse, toSnapshot, toUiFinding } from "@/lib/review/adapter"
@@ -262,17 +262,13 @@ export async function POST(req: Request) {
 
     // Call-budget router: rules + offline engine first (0 calls), then at most
     // one batched judge call and one batched verifier call, with caching.
+    const fallback = makeFallbackLLM()
     const result = await reviewContent({
       content,
       rules,
       facts: allFacts,
       canon: canonVersion,
-      llm: (system, user, role) =>
-        callGemini(
-          system,
-          user,
-          role === "verifier" ? process.env.VERIFIER_MODEL : undefined
-        ),
+      llm: fallback.llm,
       cache: supabaseCache(supabase),
       policy: policyFromEnv(),
     })
@@ -321,6 +317,7 @@ export async function POST(req: Request) {
       route: result.route,
       llm_calls: result.llmCalls,
       cached: result.cached,
+      providers_used: fallback.used(),
       ai_status: aiStatus,
       findings: identifiedFindings,
     }
@@ -380,6 +377,7 @@ export async function POST(req: Request) {
       route: result.route,
       llmCalls: result.llmCalls,
       cached: result.cached,
+      providers_used: fallback.used(),
       findings: visibleFindings.sort(
         (left, right) => (left.span_start ?? 0) - (right.span_start ?? 0)
       ),

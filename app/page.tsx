@@ -2,6 +2,8 @@
 
 import Link from "next/link"
 import { Fragment, useEffect, useRef, useState } from "react"
+import DecisionForm from "@/components/DecisionForm"
+import RouteNote from "@/components/RouteNote"
 import type { Finding, ReviewEngine, Verdict } from "@/types/engine"
 
 interface ReviewResult {
@@ -30,19 +32,6 @@ interface ReviewResult {
   llm_calls?: number
   llmCalls?: number
   cached?: boolean
-}
-
-type DecisionValue = "accepted" | "dismissed" | "overridden"
-
-interface DecisionDraft {
-  decision: DecisionValue | null
-  reason: string
-}
-
-interface DecisionResponse {
-  decision: {
-    id: string
-  }
 }
 
 type RouteTone = "local" | "cache" | "llm" | "degraded" | "unknown"
@@ -269,13 +258,6 @@ export default function Home() {
   const [reviewedContent, setReviewedContent] = useState("")
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const [decisionDrafts, setDecisionDrafts] = useState<
-    Record<string, DecisionDraft>
-  >({})
-  const [decisionMessages, setDecisionMessages] = useState<
-    Record<string, string>
-  >({})
-  const [savingDecisionId, setSavingDecisionId] = useState<string | null>(null)
   const resultRef = useRef<HTMLElement | null>(null)
 
   // Elapsed-time counter while a review is running.
@@ -300,8 +282,6 @@ export default function Home() {
     setLoading(true)
     setResult(null)
     setErrorMessage(null)
-    setDecisionDrafts({})
-    setDecisionMessages({})
 
     try {
       const response = await fetch("/api/review", {
@@ -336,66 +316,6 @@ export default function Home() {
     }
   }
 
-  function updateDecision(
-    findingId: string,
-    update: Partial<DecisionDraft>
-  ) {
-    setDecisionDrafts((drafts) => ({
-      ...drafts,
-      [findingId]: {
-        decision: drafts[findingId]?.decision ?? null,
-        reason: drafts[findingId]?.reason ?? "",
-        ...update,
-      },
-    }))
-  }
-
-  async function saveDecision(findingId: string) {
-    const draft = decisionDrafts[findingId]
-    if (!draft?.decision || !draft.reason.trim() || savingDecisionId) return
-
-    setSavingDecisionId(findingId)
-    setDecisionMessages((messages) => ({ ...messages, [findingId]: "" }))
-
-    try {
-      const response = await fetch("/api/decisions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          finding_id: findingId,
-          decision: draft.decision,
-          reason: draft.reason.trim(),
-        }),
-      })
-      const data: unknown = await response.json()
-
-      if (!response.ok) {
-        const message =
-          typeof data === "object" &&
-          data !== null &&
-          "error" in data &&
-          typeof data.error === "string"
-            ? data.error
-            : `Decision could not be saved (${response.status}).`
-        throw new Error(message)
-      }
-
-      const saved = data as DecisionResponse
-      setDecisionMessages((messages) => ({
-        ...messages,
-        [findingId]: `Decision saved (${saved.decision.id}).`,
-      }))
-    } catch (error) {
-      setDecisionMessages((messages) => ({
-        ...messages,
-        [findingId]:
-          error instanceof Error ? error.message : "Could not save decision.",
-      }))
-    } finally {
-      setSavingDecisionId(null)
-    }
-  }
-
   async function copyRunId(runId: string) {
     try {
       await navigator.clipboard.writeText(runId)
@@ -425,6 +345,12 @@ export default function Home() {
             className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
           >
             Brand Canon
+          </Link>
+          <Link
+            href="/history"
+            className="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-300 transition hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          >
+            History
           </Link>
           <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 font-mono text-xs text-emerald-400">
             Review Engine
@@ -732,73 +658,7 @@ export default function Home() {
                     </div>
 
                     {finding.id && result.persistence.status === "saved" ? (
-                      <div className="space-y-3 border-t border-slate-800 pt-4">
-                        <p className="text-xs font-medium text-slate-300">
-                          Record a decision
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {(
-                            ["accepted", "dismissed", "overridden"] as const
-                          ).map((decision) => (
-                            <button
-                              key={decision}
-                              type="button"
-                              aria-pressed={
-                                decisionDrafts[finding.id!]?.decision === decision
-                              }
-                              onClick={() =>
-                                updateDecision(finding.id!, { decision })
-                              }
-                              className={`rounded-md border px-3 py-2 text-xs capitalize focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
-                                decisionDrafts[finding.id!]?.decision === decision
-                                  ? "border-indigo-400 bg-indigo-500/20 text-indigo-200"
-                                  : "border-slate-700 text-slate-300 hover:bg-slate-800"
-                              }`}
-                            >
-                              {decision}
-                            </button>
-                          ))}
-                        </div>
-                        <label className="block">
-                          <span className="sr-only">Reason for decision</span>
-                          <textarea
-                            rows={2}
-                            maxLength={2000}
-                            value={decisionDrafts[finding.id!]?.reason ?? ""}
-                            onChange={(event) =>
-                              updateDecision(finding.id!, {
-                                reason: event.target.value,
-                              })
-                            }
-                            placeholder="Required reason for this decision..."
-                            className="w-full rounded-md border border-slate-700 bg-slate-900 p-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                          />
-                        </label>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <button
-                            type="button"
-                            disabled={
-                              savingDecisionId !== null ||
-                              !decisionDrafts[finding.id!]?.decision ||
-                              !decisionDrafts[finding.id!]?.reason.trim()
-                            }
-                            onClick={() => void saveDecision(finding.id!)}
-                            className="rounded-md bg-slate-700 px-3 py-2 text-xs text-white hover:bg-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {savingDecisionId === finding.id
-                              ? "Saving..."
-                              : "Save decision"}
-                          </button>
-                          {decisionMessages[finding.id!] && (
-                            <span
-                              role="status"
-                              className="text-xs text-slate-300"
-                            >
-                              {decisionMessages[finding.id!]}
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                      <DecisionForm findingId={finding.id} />
                     ) : (
                       <p className="border-t border-slate-800 pt-3 text-xs text-amber-300">
                         Save the finding successfully before recording a decision.
@@ -809,6 +669,11 @@ export default function Home() {
               })
             )}
           </div>
+          <RouteNote
+            route={result.route}
+            llmCalls={result.llmCalls ?? result.llm_calls}
+            cached={result.cached}
+          />
         </section>
       )}
     </main>

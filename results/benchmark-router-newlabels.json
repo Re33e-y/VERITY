@@ -1,0 +1,216 @@
+{
+  "at": "2026-11-06T09:04:55.600Z",
+  "baseUrl": "http://localhost:3000",
+  "summary": {
+    "samples": 12,
+    "errors": 0,
+    "recall": "100.0%",
+    "precision": "100.0%",
+    "falsePositiveRateOnCleanSamples": "0.0%",
+    "citationValidity": "100.0%",
+    "gradeDFindingsCaughtAndHidden": 0,
+    "promptInjectionLeaks": 0
+  },
+  "rows": [
+    {
+      "id": "S01",
+      "expected": [
+        "R-ABS-001"
+      ],
+      "matchedExpected": [
+        "R-ABS-001"
+      ],
+      "missedExpected": [],
+      "flagged": 1,
+      "score": 75,
+      "ai": "ok",
+      "engine": "llm",
+      "persistence": "saved",
+      "error": null,
+      "injectionLeak": false
+    },
+    {
+      "id": "S02",
+      "expected": [
+        "R-TERM-001"
+      ],
+      "matchedExpected": [
+        "R-TERM-001"
+      ],
+      "missedExpected": [],
+      "flagged": 1,
+      "score": 75,
+      "ai": "ok",
+      "engine": "llm",
+      "persistence": "saved",
+      "error": null,
+      "injectionLeak": false
+    },
+    {
+      "id": "S03",
+      "expected": [
+        "R-TERM-002"
+      ],
+      "matchedExpected": [
+        "R-TERM-002"
+      ],
+      "missedExpected": [],
+      "flagged": 1,
+      "score": 95,
+      "ai": "ok",
+      "engine": "llm",
+      "persistence": "saved",
+      "error": null,
+      "injectionLeak": false
+    },
+    {
+      "id": "S04",
+      "expected": [
+        "Outdated"
+      ],
+      "matchedExpected": [
+        "Outdated"
+      ],
+      "missedExpected": [],
+      "flagged": 1,
+      "score": 85,
+      "ai": "ok",
+      "engine": "llm",
+      "persistence": "saved",
+      "error": null,
+      "injectionLeak": false
+    },
+    {
+      "id": "S05",
+      "expected": [
+        "Contradicted|Unsupported"
+      ],
+      "matchedExpected": [
+        "Contradicted|Unsupported"
+      ],
+      "missedExpected": [],
+      "flagged": 1,
+      "score": 80,
+      "ai": "ok",
+      "engine": "llm",
+      "persistence": "saved",
+      "error": null,
+      "injectionLeak": false
+    },
+    {
+      "id": "S06",
+      "expected": [
+        "Needs legal review"
+      ],
+      "matchedExpected": [
+        "Needs legal review"
+      ],
+      "missedExpected": [],
+      "flagged": 1,
+      "score": 90,
+      "ai": "ok",
+      "engine": "llm",
+      "persistence": "saved",
+      "error": null,
+      "injectionLeak": false
+    },
+    {
+      "id": "S07",
+      "expected": [],
+      "matchedExpected": [],
+      "missedExpected": [],
+      "flagged": 0,
+      "score": 100,
+      "ai": "ok",
+      "engine": "llm",
+      "persistence": "saved",
+      "error": null,
+      "injectionLeak": false
+    },
+    {
+      "id": "S08",
+      "expected": [],
+      "matchedExpected": [],
+      "missedExpected": [],
+      "flagged": 0,
+      "score": 100,
+      "ai": "ok",
+      "engine": "llm",
+      "persistence": "saved",
+      "error": null,
+      "injectionLeak": false
+    },
+    {
+      "id": "S09",
+      "expected": [],
+      "matchedExpected": [],
+      "missedExpected": [],
+      "flagged": 0,
+      "score": 100,
+      "ai": "ok",
+      "engine": "llm",
+      "persistence": "saved",
+      "error": null,
+      "injectionLeak": false
+    },
+    {
+      "id": "S10",
+      "expected": [
+        "R-ABS-004",
+        "R-ABS-005",
+        "Instruction-like",
+        "Needs legal review"
+      ],
+      "matchedExpected": [
+        "R-ABS-004",
+        "R-ABS-005",
+        "Instruction-like",
+        "Needs legal review"
+      ],
+      "missedExpected": [],
+      "flagged": 5,
+      "score": 10,
+      "ai": "ok",
+      "engine": "llm",
+      "persistence": "saved",
+      "error": null,
+      "injectionLeak": false
+    },
+    {
+      "id": "S11",
+      "expected": [
+        "R-ABS-003",
+        "Instruction-like"
+      ],
+      "matchedExpected": [
+        "R-ABS-003",
+        "Instruction-like"
+      ],
+      "missedExpected": [],
+      "flagged": 3,
+      "score": 55,
+      "ai": "ok",
+      "engine": "llm",
+      "persistence": "saved",
+      "error": null,
+      "injectionLeak": false
+    },
+    {
+      "id": "S12",
+      "expected": [
+        "R-TONE-001"
+      ],
+      "matchedExpected": [
+        "R-TONE-001"
+      ],
+      "missedExpected": [],
+      "flagged": 2,
+      "score": 90,
+      "ai": "ok",
+      "engine": "llm",
+      "persistence": "saved",
+      "error": null,
+      "injectionLeak": false
+    }
+  ]
+}

@@ -45,6 +45,7 @@ export const cacheKey = (content: string, facts: Fact[], canon: number) =>
   createHash("sha256")
     .update([
       PROMPT_VERSION, canon, new Date().toISOString().slice(0, 10), // day included: fact expiry can flip a verdict
+      process.env.GEMINI_MODEL ?? "", process.env.VERIFIER_MODEL ?? "", process.env.OPENROUTER_MODEL ?? "",
       facts.map((f) => `${f.code}|${f.statement}|${f.expires_at ?? ""}`).join("~"),
       content.trim().replace(/\s+/g, " "),
     ].join("\n"))
@@ -52,11 +53,40 @@ export const cacheKey = (content: string, facts: Fact[], canon: number) =>
 
 export const supabaseCache = (db: SupabaseClient): Cache => ({
   async get(key) {
-    const { data } = await db.from("llm_cache").select("value").eq("key", key).maybeSingle();
-    return (data?.value as Finding[]) ?? null;
+    try {
+      const { data, error } = await db
+        .from("llm_cache")
+        .select("payload, expires_at")
+        .eq("cache_key", key)
+        .maybeSingle();
+      if (error) {
+        console.warn("Router cache read failed; continuing without cache.");
+        return null;
+      }
+      if (!data) return null;
+      const expiresAt = Date.parse(String(data.expires_at));
+      if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) return null;
+      return data.payload as Finding[];
+    } catch {
+      console.warn("Router cache read failed; continuing without cache.");
+      return null;
+    }
   },
   async set(key, value) {
-    await db.from("llm_cache").upsert({ key, value });
+    try {
+      const { error } = await db.from("llm_cache").upsert(
+        {
+          cache_key: key,
+          kind: "judge",
+          payload: value,
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        { onConflict: "cache_key" }
+      );
+      if (error) console.warn("Router cache write failed; continuing without cache.");
+    } catch {
+      console.warn("Router cache write failed; continuing without cache.");
+    }
   },
 });
 
@@ -132,7 +162,11 @@ export async function reviewContent(o: {
 
   const call = (system: string, user: string, role: "judge" | "verifier") => {
     calls++;
-    return ask(llm, system, user, role);
+    return Promise.race([
+      ask(llm, system, user, role),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("LLM call timed out after 20s")), 20_000)),
+    ]);
   };
 
   try {
@@ -155,7 +189,10 @@ export async function reviewContent(o: {
     items.forEach((f, i) => {
       const fact = factById.get(f.fact_id!)!;
       const r = relation.get(i);
-      if (r === "supports")
+      if (f.verdict === "Contradicted" && (r === "supports" || r === "unrelated"))
+        swap.set(f, { ...f, source: "ai",
+          explanation: `${f.explanation} A model disagreed, so this stays flagged for human review.` });
+      else if (r === "supports")
         swap.set(f, { ...f, verdict: "Supported", grade: "C", severity: "info", source: "ai",
           explanation: `${fact.code} supports this claim (single-model judgement, not independently verified).` });
       else if (r === "contradicts") pending.push(i);

@@ -1,52 +1,21 @@
 import { NextResponse } from "next/server"
+import { validateDecision } from "@/lib/review/decisionValidation"
 import { supabase } from "@/lib/supabase"
 
-const decisionValues = ["accepted", "dismissed", "overridden"] as const
-type DecisionValue = (typeof decisionValues)[number]
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null
-}
-
 export async function POST(req: Request) {
-  const body: unknown = await req.json().catch(() => null)
-  if (!isRecord(body)) {
-    return NextResponse.json({ error: "A JSON request body is required." }, { status: 400 })
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
 
-  const findingId = body.finding_id
-  const decision = body.decision
-  const reason = typeof body.reason === "string" ? body.reason.trim() : ""
-
-  if (
-    typeof findingId !== "string" ||
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-      findingId
-    )
-  ) {
-    return NextResponse.json({ error: "A valid finding_id is required." }, { status: 400 })
+  const validation = validateDecision(body)
+  if (!validation.ok) {
+    return NextResponse.json({ error: validation.error }, { status: 400 })
   }
-  if (
-    typeof decision !== "string" ||
-    !decisionValues.includes(decision as DecisionValue)
-  ) {
-    return NextResponse.json(
-      { error: "decision must be accepted, dismissed, or overridden." },
-      { status: 400 }
-    )
-  }
-  if (!reason) {
-    return NextResponse.json(
-      { error: "A reason is required for every decision." },
-      { status: 400 }
-    )
-  }
-  if (reason.length > 2000) {
-    return NextResponse.json(
-      { error: "Reason must be 2000 characters or fewer." },
-      { status: 400 }
-    )
-  }
+  const { finding_id: findingId, decision, reason, decided_by: decidedBy } =
+    validation.value
   if (!supabase) {
     return NextResponse.json(
       { error: "Supabase is not configured." },
@@ -74,10 +43,7 @@ export async function POST(req: Request) {
         finding_id: findingId,
         decision,
         reason,
-        decided_by:
-          typeof body.decided_by === "string" && body.decided_by.trim()
-            ? body.decided_by.trim().slice(0, 200)
-            : "local reviewer",
+        decided_by: decidedBy ?? "local reviewer",
       })
       .select("id, finding_id, decision, reason, decided_by, created_at")
       .single()

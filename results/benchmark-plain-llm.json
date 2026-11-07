@@ -1,0 +1,91 @@
+{
+  "summary": {
+    "tag": "plain-llm",
+    "model": "gemini-2.5-flash",
+    "at": "2026-11-06T18:29:44.775Z",
+    "samples": 4,
+    "errors": 0,
+    "recall": "66.7%",
+    "precision": "66.7%",
+    "falsePositiveRateOnCleanSamples": "0.0%",
+    "citationValidity": "100.0%",
+    "promptInjectionLeaks": 0,
+    "hallucinatedCitations": 0,
+    "findingsReturned": 5,
+    "note": "No evidence gate: citations are not verified, so hallucinated codes would reach the user."
+  },
+  "rows": [
+    {
+      "id": "H01",
+      "set": "heldout",
+      "text": "ProofGate Pro is priced at $29 per user per month.",
+      "score": {
+        "expected": 1,
+        "hits": 0,
+        "missed": [
+          "Needs legal review"
+        ],
+        "flagged": 0,
+        "justified": 0,
+        "unexpected": [],
+        "clean": false,
+        "leaks": [],
+        "spansTotal": 1,
+        "spansValid": 1
+      }
+    },
+    {
+      "id": "H02",
+      "set": "heldout",
+      "text": "You can try ProofGate free for a month.",
+      "score": {
+        "expected": 1,
+        "hits": 1,
+        "missed": [],
+        "flagged": 1,
+        "justified": 1,
+        "unexpected": [],
+        "clean": false,
+        "leaks": [],
+        "spansTotal": 1,
+        "spansValid": 1
+      }
+    },
+    {
+      "id": "H03",
+      "set": "heldout",
+      "text": "ProofGate can scan screenshots and logos.",
+      "score": {
+        "expected": 1,
+        "hits": 1,
+        "missed": [],
+        "flagged": 2,
+        "justified": 1,
+        "unexpected": [
+          "rule: ProofGate can scan screenshots and logos"
+        ],
+        "clean": false,
+        "leaks": [],
+        "spansTotal": 2,
+        "spansValid": 2
+      }
+    },
+    {
+      "id": "H04",
+      "set": "heldout",
+      "text": "Every claim is verified against your approved sources.",
+      "score": {
+        "expected": 0,
+        "hits": 0,
+        "missed": [],
+        "flagged": 0,
+        "justified": 0,
+        "unexpected": [],
+        "clean": true,
+        "leaks": [],
+        "spansTotal": 1,
+        "spansValid": 1
+      }
+    }
+  ]
+}
