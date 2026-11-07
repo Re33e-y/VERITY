@@ -143,6 +143,8 @@ The review API returns both audit status and persistence results separately. A r
 
 Decision submissions require a valid `finding_id`, one of `accepted`, `dismissed`, or `overridden`, and a reason between 5 and 1,000 characters. The API verifies that the finding exists before saving the decision. Its database relationship is finding-based; the review run is resolved through the finding's `review_run_id`.
 
+If Gemini quota is exhausted and no configured fallback provider succeeds, the review degrades to deterministic and offline findings, withholds the overall score, and displays an AI-unavailable notice instead of crashing.
+
 ## Smoke test
 
 Use this sample in the UI:
