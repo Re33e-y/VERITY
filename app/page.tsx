@@ -444,13 +444,13 @@ export default function Home() {
 
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <div className="lg:sticky lg:top-24 lg:self-start">
-          <Card className="border-foreground/10 bg-card/90 shadow-xl shadow-black/15">
-            <CardHeader className="flex flex-row items-start justify-between gap-3 border-b border-foreground/10 pb-4">
+          <Card className="gap-0 border-foreground/10 bg-card/90 py-2 shadow-xl shadow-black/15">
+            <CardHeader className="flex flex-row items-start justify-between gap-3 border-b border-foreground/10 pb-1">
               <div>
                 <CardTitle className="text-lg font-semibold">
                   Draft content
                 </CardTitle>
-                <p className="mt-1 text-sm leading-6 text-muted-foreground">
+                <p className="mt-1 text-sm leading-5 text-muted-foreground">
                   Check your copy against active brand rules and approved facts.
                 </p>
               </div>
@@ -465,7 +465,7 @@ export default function Home() {
                 </Button>
               )}
             </CardHeader>
-            <CardContent className="space-y-4 pt-4">
+            <CardContent className="space-y-2 pt-2">
               <label
                 id="draft-label"
                 htmlFor="draft-content"
@@ -475,9 +475,9 @@ export default function Home() {
               </label>
               <Textarea
                 id="draft-content"
-                rows={7}
+                rows={5}
                 maxLength={MAX_CONTENT_CHARS}
-                className="min-h-[220px] scroll-mt-36 resize-y border-foreground/15 bg-background/60 text-base leading-6 focus-visible:border-ring focus-visible:ring-ring/50 lg:scroll-mt-24"
+                className="min-h-[150px] scroll-mt-36 resize-y border-foreground/15 bg-background/60 text-base leading-6 focus-visible:border-ring focus-visible:ring-ring/50 lg:scroll-mt-24"
                 placeholder="Paste your brand content here..."
                 value={content}
                 onChange={(event) => setContent(event.target.value)}
@@ -500,31 +500,7 @@ export default function Home() {
                 </p>
               </div>
 
-              <div>
-                <p className="mb-2 text-sm font-medium text-foreground">
-                  Try an example
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {SAMPLES.map((sample) => (
-                    <Button
-                      key={sample.label}
-                      type="button"
-                      variant="outline"
-                      aria-pressed={content === sample.text}
-                      className={`min-h-9 rounded-full px-3 ${
-                        content === sample.text
-                          ? "border-primary/60 bg-primary/10 text-foreground"
-                          : "border-foreground/15 bg-transparent text-muted-foreground hover:text-foreground"
-                      } scroll-mt-36 lg:scroll-mt-24`}
-                      onClick={() => setContent(sample.text)}
-                    >
-                      {sample.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3 pt-1">
+              <div className="flex flex-wrap items-center gap-3">
                 <Button
                   type="button"
                   size="lg"
@@ -549,6 +525,31 @@ export default function Home() {
                   </span>
                 )}
               </div>
+
+              <div>
+                <p className="mb-1 text-sm font-medium text-foreground">
+                  Try an example
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {SAMPLES.map((sample) => (
+                    <Button
+                      key={sample.label}
+                      type="button"
+                      variant="outline"
+                      aria-pressed={content === sample.text}
+                      className={`min-h-8 rounded-full px-2.5 ${
+                        content === sample.text
+                          ? "border-primary/60 bg-primary/10 text-foreground"
+                          : "border-foreground/15 bg-transparent text-muted-foreground hover:text-foreground"
+                      } scroll-mt-36 lg:scroll-mt-24`}
+                      onClick={() => setContent(sample.text)}
+                    >
+                      {sample.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
             </CardContent>
           </Card>
         </div>
