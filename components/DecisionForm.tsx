@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, type FormEvent } from "react"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
 import {
   ALLOWED_DECISIONS,
   MIN_REASON_LENGTH,
@@ -62,18 +64,18 @@ export default function DecisionForm({ findingId, onSaved }: Props) {
   return (
     <form
       onSubmit={submit}
-      className="space-y-3 border-t border-slate-800 pt-4"
+      className="space-y-3 border-t border-foreground/10 pt-4"
       data-testid="decision-form"
     >
-      <p className="text-xs font-medium text-slate-300">Record a decision</p>
+      <p className="m-0 text-[13px] font-medium text-foreground">Record a decision</p>
       <div className="flex flex-wrap gap-2">
         {ALLOWED_DECISIONS.map((value) => (
           <label
             key={value}
-            className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-2 text-xs capitalize focus-within:ring-2 focus-within:ring-indigo-500 ${
+            className={`flex min-h-9 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-[13px] capitalize transition-colors focus-within:ring-2 focus-within:ring-ring ${
               decision === value
-                ? "border-indigo-400 bg-indigo-500/20 text-indigo-200"
-                : "border-slate-700 text-slate-300 hover:bg-slate-800"
+                ? "border-primary/50 bg-primary/10 text-foreground"
+                : "border-foreground/15 text-muted-foreground hover:bg-secondary hover:text-foreground"
             }`}
           >
             <input
@@ -82,7 +84,7 @@ export default function DecisionForm({ findingId, onSaved }: Props) {
               value={value}
               checked={decision === value}
               onChange={() => setDecision(value)}
-              className="accent-indigo-400"
+              className="accent-primary"
             />
             {value}
           </label>
@@ -90,35 +92,36 @@ export default function DecisionForm({ findingId, onSaved }: Props) {
       </div>
       <label className="block">
         <span className="sr-only">Reason for decision</span>
-        <textarea
+        <Textarea
           rows={2}
           maxLength={MAX_REASON_LENGTH}
           value={reason}
           onChange={(event) => setReason(event.target.value)}
           placeholder="Required reason for this decision..."
-          className="w-full rounded-md border border-slate-700 bg-slate-900 p-3 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="min-h-20 resize-y border-foreground/15 bg-background/60 text-sm leading-6 focus-visible:border-ring focus-visible:ring-ring/50"
         />
       </label>
       {reasonMissing && reason.length > 0 && (
-        <p className="text-xs text-red-300">
+        <p className="m-0 text-[13px] text-destructive">
           Reason must be at least {MIN_REASON_LENGTH} characters.
         </p>
       )}
       <div className="flex flex-wrap items-center gap-3">
-        <button
+        <Button
           type="submit"
+          size="lg"
           disabled={reasonMissing || status === "saving"}
-          className="rounded-md bg-slate-700 px-3 py-2 text-xs text-white hover:bg-slate-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="min-h-9 rounded-full bg-primary px-4 font-semibold text-primary-foreground hover:bg-primary/90"
         >
           {status === "saving" ? "Saving..." : "Save decision"}
-        </button>
+        </Button>
         {status === "saved" && (
-          <span role="status" className="text-xs text-emerald-300">
+          <span role="status" className="text-[13px] text-success">
             Decision saved.
           </span>
         )}
         {status === "error" && (
-          <span role="alert" className="text-xs text-red-300">
+          <span role="alert" className="text-[13px] text-destructive">
             {message}
           </span>
         )}

@@ -45,6 +45,7 @@
   --font-heading: var(--font-geist-sans);
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-result-arrive: result-arrive 0.3s ease-out;
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -68,6 +69,17 @@
     }
     to {
       height: 0;
+    }
+
+    @keyframes result-arrive {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
   }
 }

@@ -1,13 +1,16 @@
 "use client"
 
 import { Fragment, useEffect, useRef, useState } from "react"
-import { LoaderCircle } from "lucide-react"
+import { CircleCheck, GitBranch, LoaderCircle, TriangleAlert } from "lucide-react"
 import DecisionForm from "@/components/DecisionForm"
 import FindingsAccordion, { type FindingItem } from "@/components/FindingsAccordion"
 import RouteNote from "@/components/RouteNote"
 import DemoBanner from "@/components/demo-banner"
 import HowItWorks from "@/components/how-it-works"
+import ScoreRing from "@/components/score-ring"
 import SiteNav from "@/components/site-nav"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -15,6 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import type { Finding, ReviewEngine } from "@/types/engine"
 
@@ -193,8 +197,8 @@ function HighlightedContent({
             key={`${start}-${end}`}
             className={`rounded px-0.5 text-foreground ${
               active
-                ? "bg-primary/45 ring-2 ring-primary"
-                : "bg-warning/30 ring-1 ring-warning/40"
+                ? "bg-primary/45 ring-2 ring-primary shadow-[0_0_10px_rgba(255,107,91,0.28)]"
+                : "bg-warning/[0.22] ring-1 ring-warning"
             }`}
           >
             {text}
@@ -229,6 +233,44 @@ function findingTitle(finding: Finding) {
   if (finding.span_text.trim()) return finding.span_text
   const ruleCode = finding.explanation.match(/^([A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+):/)
   return ruleCode?.[1] ?? (finding.rule_id ? "Rule finding" : "Finding")
+}
+
+function ReviewLoading() {
+  const noAnimation = { animation: "none" }
+
+  return (
+    <div className="space-y-4" aria-label="Loading review results" aria-busy="true">
+      <Card className="border-foreground/15 bg-card/90">
+        <CardHeader className="flex flex-row items-center justify-between gap-4 border-b border-foreground/10 pb-4">
+          <div className="min-w-0 flex-1 space-y-3">
+            <Skeleton className="h-6 w-40" style={noAnimation} />
+            <Skeleton className="h-4 w-56 max-w-full" style={noAnimation} />
+            <Skeleton className="h-4 w-32" style={noAnimation} />
+          </div>
+          <Skeleton className="size-28 shrink-0 rounded-full" style={noAnimation} />
+        </CardHeader>
+        <CardContent className="space-y-3 pt-4">
+          <Skeleton className="h-16 w-full rounded-xl" style={noAnimation} />
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            {Array.from({ length: 5 }, (_, index) => (
+              <Skeleton key={index} className="h-20 w-full rounded-lg" style={noAnimation} />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+      {[0, 1].map((row) => (
+        <Card key={row} className="border-foreground/15 bg-card/90">
+          <CardContent className="flex items-center gap-3 p-4">
+            <Skeleton className="size-10 shrink-0 rounded-full" style={noAnimation} />
+            <div className="min-w-0 flex-1 space-y-2">
+              <Skeleton className="h-4 w-48 max-w-full" style={noAnimation} />
+              <Skeleton className="h-4 w-64 max-w-full" style={noAnimation} />
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
 }
 
 export default function Home() {
@@ -324,58 +366,57 @@ export default function Home() {
       : null
   const findingItems: FindingItem[] = (result?.findings ?? []).map((finding, index) => {
     const explanation = splitExplanation(finding.explanation ?? "")
+    const kind = findingKind(finding)
     return {
       id: findingKey(finding, index),
-      kind: findingKind(finding),
+      kind,
       title: findingTitle(finding),
-      sub: finding.verdict
-        ? `${finding.verdict}, grade ${finding.grade}, ${
-            finding.source === "rule" ? "offline rule" : "AI finding"
-          }`
-        : `Rule finding, grade ${finding.grade}, ${
-            finding.source === "rule" ? "offline rule" : "AI finding"
-          }`,
+      verdict: finding.verdict ?? (kind === "Instruction-like" ? kind : "Rule"),
+      grade: finding.grade,
+      source: finding.source,
       body: (
         <>
           <div className="space-y-1">
-            <p className="text-xs font-semibold text-slate-300">Message</p>
-            <p className="text-sm leading-6 text-slate-200">{explanation.body}</p>
+            <p className="m-0 text-[13px] font-semibold text-foreground">Message</p>
+            <p className="m-0 break-words text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
+              {explanation.body}
+            </p>
             {explanation.tag && (
-              <p className="inline-block rounded border border-slate-700 bg-slate-900 px-2 py-0.5 text-xs text-slate-300">
+              <p className="m-0 inline-block rounded border border-foreground/15 bg-background/60 px-2 py-1 text-[13px] text-muted-foreground">
                 {explanation.tag}
               </p>
             )}
           </div>
           {finding.span_text && (
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-slate-300">Evidence</p>
-              <p className="break-words text-sm text-amber-200 [overflow-wrap:anywhere]">
+            <div className="space-y-1 rounded-xl border border-foreground/10 bg-muted/50 p-3">
+              <p className="m-0 text-[13px] font-semibold text-foreground">Flagged text</p>
+              <p className="m-0 break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">
                 {finding.span_text}
               </p>
             </div>
           )}
           {finding.suggested_fix && (
-            <div className="space-y-1">
-              <p className="text-xs font-semibold text-slate-300">Suggested correction</p>
-              <p className="break-words text-sm text-emerald-300 [overflow-wrap:anywhere]">
+            <div className="space-y-1 rounded-xl border border-foreground/10 bg-muted/50 p-3">
+              <p className="m-0 text-[13px] font-semibold text-foreground">Suggested correction</p>
+              <p className="m-0 break-words text-sm text-muted-foreground [overflow-wrap:anywhere]">
                 {finding.suggested_fix}
               </p>
             </div>
           )}
-          <div className="flex flex-wrap gap-3 border-t border-slate-800 pt-3 text-xs text-slate-300">
-            <span>Rule: {finding.rule_id ?? "N/A"}</span>
-            <span>Fact: {finding.fact_id ?? "N/A"}</span>
+          <div className="flex flex-wrap gap-3 border-t border-foreground/10 pt-3 text-[13px] text-muted-foreground">
+            <span>Rule: {finding.rule_id ?? "Not applicable"}</span>
+            <span>Fact: {finding.fact_id ?? "Not applicable"}</span>
             <span>Canon v{finding.canon_version}</span>
             {finding.span_start !== null && finding.span_end !== null && (
               <span>
-                Span: {finding.span_start}–{finding.span_end}
+                Span: {finding.span_start}-{finding.span_end}
               </span>
             )}
           </div>
           {finding.id && result?.persistence.status === "saved" ? (
             <DecisionForm findingId={finding.id} />
           ) : (
-            <p className="border-t border-slate-800 pt-3 text-xs text-amber-200">
+            <p className="m-0 border-t border-foreground/10 pt-3 text-[13px] text-warning">
               Save the finding successfully before recording a decision.
             </p>
           )}
@@ -492,7 +533,7 @@ export default function Home() {
                   {loading && (
                     <LoaderCircle
                       aria-hidden="true"
-                      className="size-4 animate-spin"
+                      className="size-4"
                     />
                   )}
                   {loading ? "Auditing..." : "Run governance audit"}
@@ -529,25 +570,25 @@ export default function Home() {
             </div>
           )}
 
-          {!result && <HowItWorks />}
+          {loading && <ReviewLoading />}
+          {!result && !loading && <HowItWorks />}
 
           {result && route && (
-            <>
+            <div className="space-y-4 motion-safe:animate-result-arrive">
               <section ref={resultRef} aria-label="Audit summary" className="scroll-mt-24">
-                <Card className="border-foreground/10 bg-card/90 shadow-xl shadow-black/15">
-                  <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4 border-b border-foreground/10 pb-4">
+                <Card className="border-foreground/20 bg-card/90 shadow-xl shadow-black/15">
+                  <CardHeader className="flex flex-col items-start justify-between gap-4 border-b border-foreground/10 pb-4 sm:flex-row">
                     <div className="min-w-0">
                       <CardTitle className="text-xl font-semibold">Audit summary</CardTitle>
                       {result.runId && (
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                          <span className="break-all">
-                            Run ID: <code>{result.runId}</code>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-muted-foreground">
+                          <span className="break-all font-mono">
+                            Run ID: {result.runId}
                           </span>
                           <Button
                             type="button"
-                            variant="outline"
-                            size="sm"
-                            className="min-h-9 rounded-full"
+                            variant="ghost"
+                            className="min-h-9 rounded-full text-muted-foreground hover:text-foreground"
                             onClick={() => void copyRunId(result.runId!)}
                           >
                             {copied ? "Copied" : "Copy"}
@@ -558,66 +599,92 @@ export default function Home() {
                         Canon version {result.canonVersion}
                       </p>
                     </div>
-                    <div className="rounded-xl border border-primary/30 bg-primary/10 px-4 py-2 text-center">
-                      <p className="m-0 text-2xl font-bold text-foreground">
-                        {result.ai.status === "failed" ? "—" : result.score ?? "—"}
-                      </p>
-                      <p className="m-0 text-xs font-medium text-muted-foreground">
-                        {getScoreLabel(result)}
-                      </p>
+                    <div className="flex items-center gap-3 self-center sm:self-auto">
+                      <ScoreRing
+                        score={result.ai.status === "failed" ? null : result.score}
+                        size={112}
+                      />
+                      <Badge
+                        variant="outline"
+                        className={`h-auto min-h-7 whitespace-normal px-3 py-1 text-[13px] ${
+                          result.ai.status === "failed" || result.score === null
+                            ? "border-warning/40 bg-warning/10 text-warning"
+                            : result.status === "completed"
+                              ? "border-success/40 bg-success/10 text-success"
+                              : "border-warning/40 bg-warning/10 text-warning"
+                        }`}
+                      >
+                        {result.ai.status === "failed" || result.score === null
+                          ? "Score withheld"
+                          : getScoreLabel(result)}
+                      </Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4 pt-4">
-                    <div
-                      className={`rounded-xl border p-4 text-sm ${
-                        route.tone === "local"
-                          ? "border-success/35 bg-success/10"
-                          : route.tone === "degraded"
-                            ? "border-warning/35 bg-warning/10"
-                            : "border-info/35 bg-info/10"
-                      }`}
-                      role="status"
-                    >
-                      <strong className="block text-foreground">{route.title}</strong>
-                      <span className="text-muted-foreground">{route.detail}</span>
-                    </div>
+                    {route.tone === "local" ? (
+                      <Alert
+                        role="status"
+                        className="border-success/35 bg-success/10 text-foreground [&>svg]:text-success"
+                      >
+                        <CircleCheck aria-hidden="true" />
+                        <AlertTitle>Resolved locally, 0 LLM calls</AlertTitle>
+                        <AlertDescription>{route.detail}</AlertDescription>
+                      </Alert>
+                    ) : result.ai.status === "failed" || route.tone === "degraded" ? (
+                      <Alert
+                        role="status"
+                        className="border-warning/35 bg-warning/10 text-foreground [&>svg]:text-warning"
+                      >
+                        <TriangleAlert aria-hidden="true" />
+                        <AlertTitle>AI judge unavailable</AlertTitle>
+                        <AlertDescription>
+                          AI judge unavailable (quota or network). Showing offline rule results only.
+                        </AlertDescription>
+                      </Alert>
+                    ) : (
+                      <Alert
+                        role="status"
+                        className="border-info/35 bg-info/10 text-foreground [&>svg]:text-info"
+                      >
+                        <GitBranch aria-hidden="true" />
+                        <AlertTitle>{route.title}</AlertTitle>
+                        <AlertDescription>{route.detail}</AlertDescription>
+                      </Alert>
+                    )}
 
-                    <div
-                      className={`rounded-xl border p-4 text-sm ${
-                        result.persistence.status === "saved"
-                          ? "border-success/35 bg-success/10"
-                          : result.persistence.status === "partial"
-                            ? "border-warning/35 bg-warning/10"
-                            : "border-destructive/35 bg-destructive/10"
-                      }`}
+                    <Alert
                       role="status"
+                      className={`${
+                        result.persistence.status === "saved"
+                          ? "border-success/35 bg-success/10 [&>svg]:text-success"
+                          : "border-warning/35 bg-warning/10 [&>svg]:text-warning"
+                      } text-foreground`}
                     >
-                      <strong className="mr-2 text-foreground">
+                      {result.persistence.status === "saved" ? (
+                        <CircleCheck aria-hidden="true" />
+                      ) : (
+                        <TriangleAlert aria-hidden="true" />
+                      )}
+                      <AlertTitle>
                         {result.persistence.status === "saved"
                           ? "Saved"
                           : `Persistence ${result.persistence.status.replace("_", " ")}`}
-                      </strong>
-                      <span className="text-muted-foreground">
+                      </AlertTitle>
+                      <AlertDescription>
                         {result.persistence.status === "saved"
                           ? "Review and findings saved to Supabase."
                           : result.persistence.reason ??
                             `Persistence status: ${result.persistence.status}.`}
-                      </span>
-                    </div>
+                      </AlertDescription>
+                    </Alert>
 
-                    {result.ai.status === "failed" && (
-                      <div
-                        className="rounded-xl border border-warning/35 bg-warning/10 p-4 text-sm text-muted-foreground"
-                        role="alert"
-                      >
-                        <strong className="block text-foreground">AI judge unavailable</strong>
-                        AI review unavailable; deterministic rules and the offline
-                        engine ran. The overall score is withheld because AI tone and
-                        messaging checks did not complete.
-                      </div>
+                    {result.ai.status === "failed" && result.ai.error && (
+                      <p className="m-0 text-[13px] text-muted-foreground">
+                        {result.ai.error}
+                      </p>
                     )}
 
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
                       {[
                         { label: "Rules evaluated", value: result.evaluated.rules },
                         { label: "Approved facts", value: result.evaluated.facts },
@@ -627,10 +694,18 @@ export default function Home() {
                       ].map((stat) => (
                         <div
                           key={stat.label}
-                          className="rounded-lg border border-foreground/10 bg-background/40 p-3"
+                          className="min-w-0 rounded-lg border border-foreground/15 bg-background/40 p-3"
                         >
-                          <p className="m-0 text-xs text-muted-foreground">{stat.label}</p>
-                          <p className="mb-0 mt-1 text-lg font-semibold text-foreground">
+                          <p className="m-0 text-[13px] leading-5 text-muted-foreground">{stat.label}</p>
+                          <p
+                            className={`mb-0 mt-1 text-2xl font-bold leading-7 ${
+                              stat.label === "AI judge"
+                                ? result.ai.status === "ok"
+                                  ? "text-success"
+                                  : "text-warning"
+                                : "text-foreground"
+                            }`}
+                          >
                             {stat.value}
                           </p>
                         </div>
@@ -640,12 +715,12 @@ export default function Home() {
                 </Card>
               </section>
 
-              <Card className="border-foreground/10 bg-card/90 shadow-lg shadow-black/10">
+              <Card className="border-foreground/15 bg-card/90 shadow-lg shadow-black/10">
                 <CardHeader className="border-b border-foreground/10 pb-4">
                   <CardTitle className="text-lg font-semibold">Reviewed content</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4 pt-4">
-                  <div className="rounded-lg border border-foreground/10 bg-background/40 p-4 text-sm leading-7 text-foreground [overflow-wrap:anywhere]">
+                  <div className="rounded-xl border border-foreground/10 bg-muted/50 p-4 text-sm leading-7 text-foreground [overflow-wrap:anywhere]">
                     <HighlightedContent
                       content={reviewedContent}
                       findings={result.findings}
@@ -653,20 +728,16 @@ export default function Home() {
                     />
                   </div>
 
-                  {result.ai.error && (
-                    <div
-                      className="rounded-xl border border-warning/35 bg-warning/10 p-4 text-sm text-muted-foreground"
-                      role="alert"
-                    >
-                      <strong className="block text-foreground">AI layer unavailable</strong>
-                      AI layer unavailable; offline findings are shown.{" "}
-                      {result.ai.error}
-                    </div>
-                  )}
+                </CardContent>
+              </Card>
 
-                  <h2 className="mb-0 pt-2 text-lg font-semibold text-foreground">
+              <Card className="border-foreground/15 bg-card/90 shadow-lg shadow-black/10">
+                <CardHeader className="border-b border-foreground/10 pb-4">
+                  <CardTitle className="text-lg font-semibold">
                     Findings ({result.findings.length})
-                  </h2>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4 pt-2">
                   {result.findings.length === 0 ? (
                     <div className="rounded-xl border border-success/35 bg-success/10 p-4 text-sm font-medium text-foreground">
                       No policy or factual issues detected.
@@ -685,7 +756,7 @@ export default function Home() {
                   />
                 </CardContent>
               </Card>
-            </>
+            </div>
           )}
         </div>
       </div>
