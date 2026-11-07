@@ -1,84 +1,81 @@
-// WCAG 2.x contrast check for the Verity floating palette.
-// Large text (18px bold or 24px) needs 3:1; everything else needs 4.5:1.
+const colors = {
+  cream: "#F4EDE0",
+  secondary: "#CFC8BB",
+  muted: "#A9B0C0",
+  coral: "#FF6B5B",
+  navy: "#14213D",
+  success: "#34D399",
+  warning: "#FBBF24",
+  destructive: "#F87171",
+}
 
-const T = {
-  text: "#f4ede0",
-  text2: "#cfc8bb",
-  muted: "#a9b0c0",
-  accent: "#ff6b5b",
-  onAccent: "#14213d",
-  success: "#34d399",
-  warning: "#fbbf24",
-  danger: "#f87171",
-  info: "#7dd3fc",
-  violet: "#a78bfa",
-  bg: "#0e182e",
-  surface: "#14213d",
-  inset: "#1b2a4a",
-  successText: "#6ee7b7",
-  warningText: "#fde68a",
-  dangerText: "#fecaca",
-};
+const backgrounds = {
+  "page navy": "#0E182E",
+  "card navy": "#14213D",
+  "muted navy": "#1B2A4A",
+}
 
-// [label, foreground, background, minimum ratio]
-const PAIRS = [
-  ["text on page", T.text, T.bg, 4.5],
-  ["text on surface", T.text, T.surface, 4.5],
-  ["text on inset", T.text, T.inset, 4.5],
-  ["secondary on surface", T.text2, T.surface, 4.5],
-  ["secondary on inset", T.text2, T.inset, 4.5],
-  ["muted on surface", T.muted, T.surface, 4.5],
-  ["muted on inset", T.muted, T.inset, 4.5],
-  ["muted on page", T.muted, T.bg, 4.5],
-  ["accent link on surface", T.accent, T.surface, 4.5],
-  ["accent link on page", T.accent, T.bg, 4.5],
-  ["button text on accent", T.onAccent, T.accent, 4.5],
-  ["success on surface", T.success, T.surface, 4.5],
-  ["warning on surface", T.warning, T.surface, 4.5],
-  ["danger on surface", T.danger, T.surface, 4.5],
-  ["info icon on surface", T.info, T.surface, 3],
-  ["violet icon on surface", T.violet, T.surface, 3],
-  ["success heading on tinted notice", T.successText, "#143a3a", 4.5],
-  ["warning heading on tinted notice", T.warningText, "#3a3534", 4.5],
-  ["danger heading on tinted notice", T.dangerText, "#3d2a3a", 4.5],
-  ["banner text on tinted amber", "#fde68a", "#2b2a2c", 4.5],
-];
-
-function channel(v) {
-  const c = v / 255;
-  return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+function linearChannel(value) {
+  const channel = value / 255
+  return channel <= 0.04045
+    ? channel / 12.92
+    : ((channel + 0.055) / 1.055) ** 2.4
 }
 
 function luminance(hex) {
-  const n = parseInt(hex.slice(1), 16);
-  const r = (n >> 16) & 255;
-  const g = (n >> 8) & 255;
-  const b = n & 255;
-  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+  const value = Number.parseInt(hex.slice(1), 16)
+  return (
+    0.2126 * linearChannel((value >> 16) & 255) +
+    0.7152 * linearChannel((value >> 8) & 255) +
+    0.0722 * linearChannel(value & 255)
+  )
 }
 
-function ratio(a, b) {
-  const la = luminance(a);
-  const lb = luminance(b);
-  const hi = Math.max(la, lb);
-  const lo = Math.min(la, lb);
-  return (hi + 0.05) / (lo + 0.05);
+function contrast(foreground, background) {
+  const first = luminance(foreground)
+  const second = luminance(background)
+  return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05)
 }
 
-let failed = 0;
-console.log("pair".padEnd(38), "ratio".padStart(7), "needs".padStart(6), " result");
+const checks = []
+for (const [name, foreground] of Object.entries(colors)) {
+  if (name === "navy") continue
+  for (const [backgroundName, background] of Object.entries(backgrounds)) {
+    checks.push({
+      label: `${name} on ${backgroundName}`,
+      foreground,
+      background,
+      minimum: 4.5,
+      usage: "small text",
+    })
+  }
+}
 
-for (const [label, fg, bg, min] of PAIRS) {
-  const r = ratio(fg, bg);
-  const ok = r >= min;
-  if (!ok) failed += 1;
+checks.push({
+  label: "navy on coral",
+  foreground: colors.navy,
+  background: colors.coral,
+  minimum: 4.5,
+  usage: "small text",
+})
+
+console.log("pair".padEnd(28), "ratio".padStart(7), "minimum".padStart(9), "result")
+let failed = 0
+
+for (const check of checks) {
+  const ratio = contrast(check.foreground, check.background)
+  const passed = ratio >= check.minimum
+  if (!passed) failed += 1
   console.log(
-    label.padEnd(38),
-    r.toFixed(2).padStart(7),
-    String(min).padStart(6),
-    ok ? " pass" : " FAIL",
-  );
+    check.label.padEnd(28),
+    `${ratio.toFixed(2)}:1`.padStart(7),
+    `${check.minimum.toFixed(1)}:1`.padStart(9),
+    passed ? "PASS" : "FAIL",
+  )
 }
 
-console.log(failed ? `\n${failed} pair(s) below the minimum.` : "\nAll pairs pass.");
-process.exit(failed ? 1 : 0);
+console.log(
+  `\nLarge text and icons use a 3:1 minimum; all listed pairs were checked against the stricter 4.5:1 small-text minimum.`,
+)
+console.log(failed ? `${failed} contrast check(s) failed.` : "All contrast checks pass.")
+process.exit(failed ? 1 : 0)

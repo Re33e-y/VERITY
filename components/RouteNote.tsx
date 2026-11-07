@@ -14,11 +14,11 @@ export default function RouteNote({ route, llmCalls, cached }: Props) {
 
   return (
     <p
-      className="inline-flex items-center gap-2 rounded bg-slate-800 px-2 py-1 text-sm text-slate-300"
+      className="inline-flex items-center gap-2 rounded border border-foreground/10 bg-muted px-2 py-1 text-sm text-muted-foreground"
       data-testid="route-note"
     >
       <span>{text}</span>
-      {route ? <span className="text-xs text-slate-400">route: {route}</span> : null}
+      {route ? <span className="text-[13px] text-slate-400">route: {route}</span> : null}
     </p>
   )
 }

@@ -70,16 +70,16 @@
     to {
       height: 0;
     }
+  }
 
-    @keyframes result-arrive {
-      from {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+  @keyframes result-arrive {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
     }
   }
 }
@@ -137,5 +137,20 @@
     @apply bg-background text-foreground;
     font-size: 16px;
     line-height: 1.6;
+    background-image: radial-gradient(
+      ellipse at 50% 0%,
+      rgba(255, 107, 91, 0.2),
+      transparent 60%
+    );
+    background-attachment: fixed;
   }
+
+  html {
+    scroll-padding-top: 6rem;
+  }
+
+  :where(a, button, input, textarea, select, [tabindex]) {
+    scroll-margin-block: 6rem;
+  }
+
 }

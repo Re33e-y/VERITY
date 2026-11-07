@@ -2,8 +2,24 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
-import FloatingNav from "@/components/floating/FloatingNav"
-import SiteFooter from "@/components/floating/SiteFooter"
+import SiteFooter from "@/components/SiteFooter"
+import SiteNav from "@/components/site-nav"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
 interface CanonRule {
   id: string
@@ -69,114 +85,139 @@ export default function CanonPage() {
   }, [])
 
   return (
-    <main className="vf-shell">
-      <FloatingNav active="canon" />
-      <section className="vf-card space-y-8">
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-white">Brand Canon</h1>
-          <p className="mt-1 text-sm text-slate-400">
-            Approved rules and facts used by Verity reviews.
-          </p>
-        </div>
-        <Link
-          href="/"
-          className="rounded-lg border border-slate-700 px-4 py-2 text-sm text-slate-200 transition hover:bg-slate-800"
-        >
-          Back to audit
-        </Link>
-      </header>
-
-      {loading && <p className="text-sm text-slate-400">Loading canon…</p>}
-      {error && (
-        <div
-          role="alert"
-          className="rounded-lg border border-red-500/40 bg-red-950/50 p-4 text-sm text-red-200"
-        >
-          Could not load the canon: {error}. Confirm that the Supabase schema
-          has been applied and the server environment is configured.
-        </div>
-      )}
-
-      {!loading && !error && (
-        <>
-          <section className="space-y-4">
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-xl font-semibold">Rules</h2>
-              <span className="text-sm text-slate-400">{rules.length} total</span>
-            </div>
-            {rules.length === 0 ? (
-              <p className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">
-                No rules are in the canon yet.
+    <main className="relative z-[1] mx-auto w-full max-w-[1200px] px-4 pb-12 pt-3 sm:px-6">
+      <SiteNav active="canon" />
+      <div className="space-y-5">
+        <Card>
+          <CardHeader className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <div>
+              <CardTitle className="text-2xl">Brand Canon</CardTitle>
+              <p className="mb-0 mt-1 text-sm leading-6 text-muted-foreground">
+                Approved rules and facts used by Verity reviews.
               </p>
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2">
-                {rules.map((rule) => (
-                  <article
-                    key={rule.id}
-                    className="space-y-3 rounded-xl border border-slate-800 bg-slate-900/70 p-4"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3 className="font-mono text-sm font-semibold text-indigo-300">
-                        {rule.code}
-                      </h3>
-                      <span className="rounded-full border border-slate-700 px-2 py-1 text-xs uppercase text-slate-300">
-                        {rule.active ? rule.severity : "inactive"} · {rule.type}
-                      </span>
-                    </div>
-                    <p className="text-sm text-slate-200">{rule.description}</p>
-                    {rule.pattern && (
-                      <p className="text-xs text-slate-400">
-                        Match: <code className="text-amber-300">{rule.pattern}</code>
-                        {rule.preferred && (
-                          <> · Preferred: <code className="text-emerald-300">{rule.preferred}</code></>
-                        )}
-                      </p>
-                    )}
-                    <p className="text-xs text-slate-500">
-                      Canon v{rule.canon_version}
-                      {rule.source_page !== null && ` · Source page ${rule.source_page}`}
-                      {rule.expires_at && ` · Expires ${rule.expires_at.slice(0, 10)}`}
-                    </p>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="space-y-4">
-            <div className="flex items-baseline justify-between">
-              <h2 className="text-xl font-semibold">Approved facts</h2>
-              <span className="text-sm text-slate-400">{facts.length} total</span>
             </div>
-            {facts.length === 0 ? (
-              <p className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm text-slate-400">
-                No facts are in the canon yet.
-              </p>
-            ) : (
-              <div className="space-y-3">
-                {facts.map((fact) => (
-                  <article
-                    key={fact.id}
-                    className="space-y-2 rounded-xl border border-slate-800 bg-slate-900/70 p-4"
-                  >
-                    <h3 className="font-mono text-sm font-semibold text-indigo-300">
-                      {fact.code}
-                    </h3>
-                    <p className="text-sm text-slate-200">{fact.statement}</p>
-                    <p className="text-xs text-slate-500">
-                      Canon v{fact.canon_version}
-                      {fact.source_page !== null && ` · Source page ${fact.source_page}`}
-                      {fact.expires_at && ` · Expires ${fact.expires_at.slice(0, 10)}`}
-                    </p>
-                  </article>
-                ))}
-              </div>
-            )}
-          </section>
-        </>
-      )}
-      </section>
+            <Link
+              href="/"
+              className="inline-flex min-h-9 w-fit items-center rounded-full border border-foreground/15 px-4 text-sm text-foreground no-underline transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Back to audit
+            </Link>
+          </CardHeader>
+        </Card>
+
+        {loading && (
+          <Card><CardContent className="pt-4 text-sm text-muted-foreground">Loading canon…</CardContent></Card>
+        )}
+        {error && (
+          <Alert variant="destructive">
+            <AlertTitle>Could not load the canon</AlertTitle>
+            <AlertDescription className="break-words">
+              {error}. Confirm that the Supabase schema has been applied and the server environment is configured.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {!loading && !error && (
+          <>
+            <Card>
+              <CardHeader className="flex flex-row items-baseline justify-between gap-4">
+                <CardTitle>Rules</CardTitle>
+                <Badge variant="outline">{rules.length} total</Badge>
+              </CardHeader>
+              <CardContent>
+                {rules.length === 0 ? (
+                  <p className="m-0 rounded-lg border border-foreground/15 bg-muted/40 p-4 text-sm text-muted-foreground">
+                    No rules are in the canon yet.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border border-foreground/10">
+                    <Table className="min-w-[760px]">
+                      <TableHeader className="bg-muted/50">
+                        <TableRow>
+                          <TableHead>Rule</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead>Match</TableHead>
+                          <TableHead>Preferred</TableHead>
+                          <TableHead>Type and severity</TableHead>
+                          <TableHead>Canon details</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {rules.map((rule) => (
+                          <TableRow key={rule.id} className="align-top">
+                            <TableCell className="font-mono font-semibold text-primary">{rule.code}</TableCell>
+                            <TableCell className="max-w-sm whitespace-normal break-words">{rule.description}</TableCell>
+                            <TableCell className="max-w-xs whitespace-normal break-words [overflow-wrap:anywhere]">{rule.pattern ?? "-"}</TableCell>
+                            <TableCell className="max-w-xs whitespace-normal break-words [overflow-wrap:anywhere]">{rule.preferred ?? "-"}</TableCell>
+                            <TableCell className="whitespace-normal">
+                              <Badge variant="outline" className={rule.active ? "border-success/35 bg-success/10 text-success" : "border-foreground/20 bg-muted text-muted-foreground"}>
+                                {rule.active ? "Active" : "Inactive"}
+                              </Badge>
+                              <p className="mb-0 mt-2 text-[13px] leading-5 text-muted-foreground">
+                                {rule.severity} · {rule.type}
+                              </p>
+                            </TableCell>
+                            <TableCell className="whitespace-normal">
+                              <p className="m-0">Canon v{rule.canon_version}</p>
+                              <p className="mb-0 mt-1 text-[13px] leading-5 text-muted-foreground">
+                                {rule.source_page !== null && `Source page ${rule.source_page}`}
+                                {rule.expires_at && ` · Expires ${rule.expires_at.slice(0, 10)}`}
+                                {rule.source_page === null && !rule.expires_at && "No source page or expiry"}
+                              </p>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-baseline justify-between gap-4">
+                <CardTitle>Approved facts</CardTitle>
+                <Badge variant="outline">{facts.length} total</Badge>
+              </CardHeader>
+              <CardContent>
+                {facts.length === 0 ? (
+                  <p className="m-0 rounded-lg border border-foreground/15 bg-muted/40 p-4 text-sm text-muted-foreground">
+                    No facts are in the canon yet.
+                  </p>
+                ) : (
+                  <div className="overflow-x-auto rounded-lg border border-foreground/10">
+                    <Table className="min-w-[620px]">
+                      <TableHeader className="bg-muted/50">
+                        <TableRow>
+                          <TableHead>Fact</TableHead>
+                          <TableHead>Approved statement</TableHead>
+                          <TableHead>Canon details</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {facts.map((fact) => (
+                          <TableRow key={fact.id} className="align-top">
+                            <TableCell className="font-mono font-semibold text-primary">{fact.code}</TableCell>
+                            <TableCell className="max-w-2xl whitespace-normal break-words">{fact.statement}</TableCell>
+                            <TableCell className="whitespace-normal">
+                              <p className="m-0">Canon v{fact.canon_version}</p>
+                              <p className="mb-0 mt-1 text-[13px] leading-5 text-muted-foreground">
+                                {fact.source_page !== null && `Source page ${fact.source_page}`}
+                                {fact.expires_at && ` · Expires ${fact.expires_at.slice(0, 10)}`}
+                                {fact.source_page === null && !fact.expires_at && "No source page or expiry"}
+                              </p>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
+      </div>
       <SiteFooter />
     </main>
   )

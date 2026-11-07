@@ -1,8 +1,24 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Suspense } from "react"
-import FloatingNav from "@/components/floating/FloatingNav"
-import SiteFooter from "@/components/floating/SiteFooter"
+import SiteFooter from "@/components/SiteFooter"
+import SiteNav from "@/components/site-nav"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { supabase } from "@/lib/supabase"
 
 type Row = Record<string, unknown>
@@ -16,6 +32,24 @@ function displayDate(value: unknown): string {
   return Number.isNaN(date.getTime())
     ? "Unknown time"
     : `${date.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST`
+}
+
+function RunDetailError({ message }: { message: string }) {
+  return (
+    <main className="relative z-[1] mx-auto w-full max-w-[1200px] px-4 pb-12 pt-3 sm:px-6">
+      <SiteNav active="history" />
+      <Card>
+        <CardHeader><CardTitle>Review details</CardTitle></CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <AlertTitle>Review details could not be loaded</AlertTitle>
+            <AlertDescription className="break-words">{message}</AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+      <SiteFooter />
+    </main>
+  )
 }
 
 async function RunDetailContent({
@@ -33,15 +67,7 @@ async function RunDetailContent({
     .maybeSingle()
 
   if (runError) {
-    return (
-      <main className="vf-shell">
-        <FloatingNav active="history" />
-        <div className="vf-notice vf-notice-danger" role="alert">
-          <strong>Could not load review run:</strong> {runError.message}
-        </div>
-        <SiteFooter />
-      </main>
-    )
+    return <RunDetailError message={`Could not load review run: ${runError.message}`} />
   }
   if (!run) notFound()
 
@@ -51,15 +77,7 @@ async function RunDetailContent({
     .eq("review_run_id", id)
 
   if (findingsError) {
-    return (
-      <main className="vf-shell">
-        <FloatingNav active="history" />
-        <div className="vf-notice vf-notice-danger" role="alert">
-          <strong>Could not load findings:</strong> {findingsError.message}
-        </div>
-        <SiteFooter />
-      </main>
-    )
+    return <RunDetailError message={`Could not load findings: ${findingsError.message}`} />
   }
   const findings = (findingData ?? []) as Row[]
   const findingIds = findings
@@ -75,15 +93,7 @@ async function RunDetailContent({
       .order("created_at", { ascending: true })
 
     if (decisionsError) {
-      return (
-        <main className="vf-shell">
-          <FloatingNav active="history" />
-          <div className="vf-notice vf-notice-danger" role="alert">
-            <strong>Could not load decisions:</strong> {decisionsError.message}
-          </div>
-          <SiteFooter />
-        </main>
-      )
+      return <RunDetailError message={`Could not load decisions: ${decisionsError.message}`} />
     }
     decisions = (decisionData ?? []) as Row[]
   }
@@ -95,98 +105,135 @@ async function RunDetailContent({
       : null
 
   return (
-    <main className="vf-shell">
-      <FloatingNav active="history" />
-      <section className="vf-card space-y-6">
-      <Link href="/history" className="text-sm text-indigo-300 underline">
-        Back to history
-      </Link>
+    <main className="relative z-[1] mx-auto w-full max-w-[1200px] px-4 pb-12 pt-3 sm:px-6">
+      <SiteNav active="history" />
+      <div className="space-y-5">
+        <Card>
+          <CardHeader className="gap-3">
+            <Link
+              href="/history"
+              className="w-fit rounded-sm text-[13px] text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              Back to history
+            </Link>
+            <CardTitle className="text-2xl">Run {String(run.id).slice(0, 8)}</CardTitle>
+            <p className="m-0 break-words text-sm leading-6 text-muted-foreground">
+              {displayDate(run.created_at)}
+              {" | route: "}
+              {typeof snapshot?.route === "string" ? snapshot.route : "-"}
+              {" | LLM calls: "}
+              {typeof snapshot?.llm_calls === "number" ? snapshot.llm_calls : "-"}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline">Status: {String(run.status ?? "-")}</Badge>
+              <Badge variant="outline">
+                Score: {typeof run.score === "number" ? run.score : "withheld"}
+              </Badge>
+            </div>
+          </CardHeader>
+        </Card>
 
-      <header>
-        <h1 className="text-2xl font-semibold">Run {String(run.id).slice(0, 8)}</h1>
-        <p className="mt-1 text-sm text-slate-400">
-          {displayDate(run.created_at)}
-          {" | route: "}
-          {typeof snapshot?.route === "string" ? snapshot.route : "-"}
-          {" | LLM calls: "}
-          {typeof snapshot?.llm_calls === "number" ? snapshot.llm_calls : "-"}
-        </p>
-        <p className="mt-1 text-xs text-slate-500">
-          Status: {String(run.status ?? "-")} | Score: {run.score ?? "withheld"}
-        </p>
-      </header>
-
-      {content !== null && (
-        <section>
-          <h2 className="mb-2 font-semibold">Reviewed text</h2>
-          <pre className="whitespace-pre-wrap break-words rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm">
-            {content}
-          </pre>
-        </section>
-      )}
-
-      {snapshot && (
-        <section>
-          <h2 className="mb-2 font-semibold">Review snapshot</h2>
-          <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-lg border border-slate-800 bg-slate-900 p-4 text-xs text-slate-300">
-            {JSON.stringify(snapshot, null, 2)}
-          </pre>
-        </section>
-      )}
-
-      <section>
-        <h2 className="mb-2 font-semibold">Findings ({findings.length})</h2>
-        {findings.length === 0 ? (
-          <p className="text-sm text-slate-400">None.</p>
-        ) : (
-          <ul className="space-y-3">
-            {findings.map((finding, index) => (
-              <li
-                key={typeof finding.id === "string" ? finding.id : index}
-                className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm"
-              >
-                <p className="font-medium text-amber-200">
-                  {typeof finding.verdict === "string" ? finding.verdict : "Rule finding"}
-                  {typeof finding.severity === "string" ? ` · ${finding.severity}` : ""}
-                </p>
-                {typeof finding.span_text === "string" && (
-                  <p className="mt-2 text-slate-200">{finding.span_text}</p>
-                )}
-                {typeof finding.explanation === "string" && (
-                  <p className="mt-2 text-slate-400">{finding.explanation}</p>
-                )}
-                <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-words text-xs text-slate-500">
-                  {JSON.stringify(finding, null, 2)}
-                </pre>
-              </li>
-            ))}
-          </ul>
+        {content !== null && (
+          <Card>
+            <CardHeader><CardTitle>Reviewed text</CardTitle></CardHeader>
+            <CardContent>
+              <p className="m-0 whitespace-pre-wrap break-words rounded-xl border border-foreground/10 bg-muted/50 p-4 text-sm leading-6 [overflow-wrap:anywhere]">
+                {content}
+              </p>
+            </CardContent>
+          </Card>
         )}
-      </section>
 
-      <section>
-        <h2 className="mb-2 font-semibold">Decision log ({decisions.length})</h2>
-        {decisions.length === 0 ? (
-          <p className="text-sm text-slate-400">No decisions yet.</p>
-        ) : (
-          <ol className="space-y-3">
-            {decisions.map((decision, index) => (
-              <li
-                key={typeof decision.id === "string" ? decision.id : index}
-                className="rounded-lg border border-slate-800 bg-slate-900 p-4 text-sm"
-              >
-                <p className="font-medium capitalize">{String(decision.decision ?? "decision")}</p>
-                <p className="mt-1 text-slate-300">{String(decision.reason ?? "")}</p>
-                <p className="mt-2 text-xs text-slate-500">
-                  {displayDate(decision.created_at)}
-                  {typeof decision.decided_by === "string" ? ` · ${decision.decided_by}` : ""}
-                </p>
-              </li>
-            ))}
-          </ol>
+        {snapshot && (
+          <Card>
+            <CardHeader><CardTitle>Review snapshot</CardTitle></CardHeader>
+            <CardContent>
+              <pre className="m-0 overflow-x-auto whitespace-pre-wrap break-words rounded-xl border border-foreground/10 bg-muted/50 p-4 font-mono text-[13px] leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+                {JSON.stringify(snapshot, null, 2)}
+              </pre>
+            </CardContent>
+          </Card>
         )}
-      </section>
-      </section>
+
+        <Card>
+          <CardHeader><CardTitle>Findings ({findings.length})</CardTitle></CardHeader>
+          <CardContent>
+            {findings.length === 0 ? (
+              <p className="m-0 text-sm text-muted-foreground">None.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-foreground/10">
+                <Table className="min-w-[700px]">
+                  <TableHeader className="bg-muted/50">
+                    <TableRow>
+                      <TableHead>Verdict</TableHead>
+                      <TableHead>Flagged text</TableHead>
+                      <TableHead>Explanation</TableHead>
+                      <TableHead>Finding data</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {findings.map((finding, index) => (
+                      <TableRow key={typeof finding.id === "string" ? finding.id : index} className="align-top">
+                        <TableCell className="whitespace-normal">
+                          <Badge variant="outline" className="whitespace-normal border-warning/35 bg-warning/10 text-warning">
+                            {typeof finding.verdict === "string" ? finding.verdict : "Rule finding"}
+                          </Badge>
+                          {typeof finding.severity === "string" && (
+                            <p className="mb-0 mt-2 text-[13px] text-muted-foreground">{finding.severity}</p>
+                          )}
+                        </TableCell>
+                        <TableCell className="max-w-xs whitespace-normal break-words [overflow-wrap:anywhere]">
+                          {typeof finding.span_text === "string" ? finding.span_text : "-"}
+                        </TableCell>
+                        <TableCell className="max-w-lg whitespace-normal break-words [overflow-wrap:anywhere]">
+                          {typeof finding.explanation === "string" ? finding.explanation : "-"}
+                        </TableCell>
+                        <TableCell className="max-w-sm whitespace-normal">
+                          <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[13px] leading-5 text-muted-foreground [overflow-wrap:anywhere]">
+                            {JSON.stringify(finding, null, 2)}
+                          </pre>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader><CardTitle>Decision log ({decisions.length})</CardTitle></CardHeader>
+          <CardContent>
+            {decisions.length === 0 ? (
+              <p className="m-0 text-sm text-muted-foreground">No decisions yet.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-foreground/10">
+                <Table className="min-w-[620px]">
+                  <TableHeader className="bg-muted/50">
+                    <TableRow>
+                      <TableHead>Decision</TableHead>
+                      <TableHead>Reason</TableHead>
+                      <TableHead>Recorded</TableHead>
+                      <TableHead>Decided by</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {decisions.map((decision, index) => (
+                      <TableRow key={typeof decision.id === "string" ? decision.id : index} className="align-top">
+                        <TableCell className="capitalize">{String(decision.decision ?? "decision")}</TableCell>
+                        <TableCell className="max-w-lg whitespace-normal break-words">{String(decision.reason ?? "")}</TableCell>
+                        <TableCell>{displayDate(decision.created_at)}</TableCell>
+                        <TableCell>{typeof decision.decided_by === "string" ? decision.decided_by : "-"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
       <SiteFooter />
     </main>
   )
@@ -196,9 +243,9 @@ export default function RunDetail({ params }: { params: Promise<{ id: string }> 
   return (
     <Suspense
       fallback={
-        <main className="vf-shell">
-          <FloatingNav active="history" />
-          <div className="vf-card">Loading review details...</div>
+        <main className="relative z-[1] mx-auto w-full max-w-[1200px] px-4 pb-12 pt-3 sm:px-6">
+          <SiteNav active="history" />
+          <Card><CardContent className="pt-4">Loading review details...</CardContent></Card>
           <SiteFooter />
         </main>
       }

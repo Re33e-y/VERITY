@@ -5,6 +5,7 @@ import { CircleCheck, GitBranch, LoaderCircle, TriangleAlert } from "lucide-reac
 import DecisionForm from "@/components/DecisionForm"
 import FindingsAccordion, { type FindingItem } from "@/components/FindingsAccordion"
 import RouteNote from "@/components/RouteNote"
+import SiteFooter from "@/components/SiteFooter"
 import DemoBanner from "@/components/demo-banner"
 import HowItWorks from "@/components/how-it-works"
 import ScoreRing from "@/components/score-ring"
@@ -295,7 +296,7 @@ export default function Home() {
   // Bring the result into view once it arrives.
   useEffect(() => {
     if (result) {
-      resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+      resultRef.current?.scrollIntoView({ behavior: "auto", block: "start" })
     }
   }, [result])
 
@@ -426,6 +427,7 @@ export default function Home() {
   })
 
   return (
+    <>
     <main className="relative z-[1] mx-auto w-full max-w-[1200px] px-4 pb-12 pt-3 sm:px-6">
       <DemoBanner />
       <SiteNav active="review" />
@@ -576,7 +578,7 @@ export default function Home() {
           {result && route && (
             <div className="space-y-4 motion-safe:animate-result-arrive">
               <section ref={resultRef} aria-label="Audit summary" className="scroll-mt-24">
-                <Card className="border-foreground/20 bg-card/90 shadow-xl shadow-black/15">
+                <Card className="border-foreground/[0.18] bg-card/90 shadow-xl shadow-black/15">
                   <CardHeader className="flex flex-col items-start justify-between gap-4 border-b border-foreground/10 pb-4 sm:flex-row">
                     <div className="min-w-0">
                       <CardTitle className="text-xl font-semibold">Audit summary</CardTitle>
@@ -760,10 +762,8 @@ export default function Home() {
           )}
         </div>
       </div>
-
-      <footer className="mt-10 border-t border-foreground/10 pt-5 text-sm text-muted-foreground">
-        Brand governance review
-      </footer>
     </main>
+    <SiteFooter />
+    </>
   )
 }

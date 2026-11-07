@@ -1,7 +1,23 @@
 import Link from "next/link"
 import { Suspense } from "react"
-import FloatingNav from "@/components/floating/FloatingNav"
-import SiteFooter from "@/components/floating/SiteFooter"
+import SiteFooter from "@/components/SiteFooter"
+import SiteNav from "@/components/site-nav"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 import { supabase } from "@/lib/supabase"
 
 interface ReviewRunRow {
@@ -39,9 +55,29 @@ function callCount(run: ReviewRunRow): number | null {
 }
 
 const decisionStyles: Record<string, string> = {
-  accepted: "bg-emerald-500/15 text-emerald-300",
-  dismissed: "bg-slate-700 text-slate-300",
-  overridden: "bg-amber-500/15 text-amber-300",
+  accepted: "border-success/35 bg-success/10 text-success",
+  dismissed: "border-foreground/20 bg-muted text-muted-foreground",
+  overridden: "border-warning/35 bg-warning/10 text-warning",
+}
+
+function HistoryError({ title, message }: { title: string; message: string }) {
+  return (
+    <main className="relative z-[1] mx-auto w-full max-w-[1200px] px-4 pb-12 pt-3 sm:px-6">
+      <SiteNav active="history" />
+      <Card>
+        <CardHeader>
+          <CardTitle>{title}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <AlertTitle>History could not be loaded</AlertTitle>
+            <AlertDescription className="break-words">{message}</AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+      <SiteFooter />
+    </main>
+  )
 }
 
 async function HistoryContent() {
@@ -52,15 +88,7 @@ async function HistoryContent() {
     .limit(100)
 
   if (runsError) {
-    return (
-      <main className="vf-shell">
-        <FloatingNav active="history" />
-        <div className="vf-notice vf-notice-danger" role="alert">
-          <strong>Could not load history:</strong> {runsError.message}
-        </div>
-        <SiteFooter />
-      </main>
-    )
+    return <HistoryError title="Review history" message={runsError.message} />
   }
 
   const runs = (runData ?? []) as ReviewRunRow[]
@@ -76,14 +104,10 @@ async function HistoryContent() {
 
     if (findingsResult.error) {
       return (
-        <main className="vf-shell">
-          <FloatingNav active="history" />
-          <div className="vf-notice vf-notice-danger" role="alert">
-            <strong>Could not load review findings:</strong>{" "}
-            {findingsResult.error.message}
-          </div>
-          <SiteFooter />
-        </main>
+        <HistoryError
+          title="Review history"
+          message={`Could not load review findings: ${findingsResult.error.message}`}
+        />
       )
     }
 
@@ -98,14 +122,10 @@ async function HistoryContent() {
 
       if (decisionsResult.error) {
         return (
-          <main className="vf-shell">
-            <FloatingNav active="history" />
-            <div className="vf-notice vf-notice-danger" role="alert">
-              <strong>Could not load decisions:</strong>{" "}
-              {decisionsResult.error.message}
-            </div>
-            <SiteFooter />
-          </main>
+          <HistoryError
+            title="Review history"
+            message={`Could not load decisions: ${decisionsResult.error.message}`}
+          />
         )
       }
 
@@ -135,92 +155,100 @@ async function HistoryContent() {
   const localRuns = knownCallCounts.filter((count) => count === 0).length
 
   return (
-    <main className="vf-shell">
-      <FloatingNav active="history" />
-      <section className="vf-card space-y-6">
+    <main className="relative z-[1] mx-auto w-full max-w-[1200px] px-4 pb-12 pt-3 sm:px-6">
+      <SiteNav active="history" />
+      <Card className="gap-6">
+        <CardHeader>
+          <CardTitle className="text-2xl">Review history</CardTitle>
+          <p className="m-0 text-sm leading-6 text-muted-foreground">
+            Audit trail of review runs, findings, LLM usage, and human decisions.
+            Submitted text is visible here.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <section aria-label="History summary" className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            {[
+              ["Runs shown", String(runs.length)],
+              ["Resolved locally", knownCallCounts.length ? `${localRuns} of ${knownCallCounts.length}` : "-"],
+              ["Total LLM calls", String(knownCallCounts.reduce((sum, count) => sum + count, 0))],
+              ["Decisions recorded", String(decisions.length)],
+            ].map(([label, value]) => (
+              <div key={label} className="min-w-0 rounded-lg border border-foreground/15 bg-background/40 p-3">
+                <p className="m-0 text-[13px] leading-5 text-muted-foreground">{label}</p>
+                <p className="mb-0 mt-1 break-words text-2xl font-bold leading-7 text-foreground">{value}</p>
+              </div>
+            ))}
+          </section>
 
-      <header>
-        <h1 className="text-2xl font-semibold">Review history</h1>
-        <p className="mt-1 text-sm text-slate-400">
-          Audit trail of review runs, findings, LLM usage, and human decisions. This demo
-          history is read-only and has no authentication; submitted text is visible here.
-        </p>
-      </header>
-
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {[
-          ["Runs shown", String(runs.length)],
-          ["Resolved locally", knownCallCounts.length ? `${localRuns} of ${knownCallCounts.length}` : "-"],
-          ["Total LLM calls", String(knownCallCounts.reduce((sum, count) => sum + count, 0))],
-          ["Decisions recorded", String(decisions.length)],
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-lg border border-slate-800 bg-slate-900 p-3">
-            <div className="text-xs text-slate-400">{label}</div>
-            <div className="text-xl font-semibold">{value}</div>
-          </div>
-        ))}
-      </section>
-
-      {runs.length === 0 ? (
-        <p className="text-sm text-slate-400">No review runs yet.</p>
-      ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-800">
-          <table className="w-full border-collapse text-left text-sm">
-            <thead className="bg-slate-900 text-slate-300">
-              <tr>
-                <th className="p-3">Time (IST)</th>
-                <th className="p-3">Route</th>
-                <th className="p-3">LLM calls</th>
-                <th className="p-3">Findings</th>
-                <th className="p-3">Decisions</th>
-                <th className="p-3">Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {runs.map((run) => {
-                const snapshot = snapshotOf(run.snapshot)
-                const runFindings = findingsByRun.get(run.id) ?? []
-                const runDecisions = decisionsByRun.get(run.id) ?? []
-                const count = callCount(run)
-                return (
-                  <tr key={run.id} className="border-t border-slate-800 align-top">
-                    <td className="whitespace-nowrap p-3">
-                      {new Date(run.created_at).toLocaleString("en-IN", {
-                        timeZone: "Asia/Kolkata",
-                      })}
-                    </td>
-                    <td className="p-3">{typeof snapshot.route === "string" ? snapshot.route : "-"}</td>
-                    <td className="p-3">{count === null ? "-" : count === 0 ? "0 (local)" : count}</td>
-                    <td className="p-3">{runFindings.length}</td>
-                    <td className="max-w-sm p-3">
-                      {runDecisions.length === 0 ? (
-                        <span className="text-slate-500">pending</span>
-                      ) : (
-                        <div className="space-y-2">
-                          {runDecisions.map((decision) => (
-                            <div key={decision.id} className="text-xs">
-                              <span className={`rounded px-1.5 py-0.5 ${decisionStyles[decision.decision] ?? "bg-slate-800"}`}>
-                                {decision.decision}
-                              </span>
-                              <span className="ml-2 text-slate-300">{decision.reason}</span>
+          {runs.length === 0 ? (
+            <p className="m-0 rounded-lg border border-foreground/15 bg-muted/40 p-4 text-sm text-muted-foreground">
+              No review runs yet.
+            </p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-foreground/10">
+              <Table className="min-w-[760px]">
+                <TableHeader className="bg-muted/50">
+                  <TableRow>
+                    <TableHead>Time (IST)</TableHead>
+                    <TableHead>Route</TableHead>
+                    <TableHead>LLM calls</TableHead>
+                    <TableHead>Findings</TableHead>
+                    <TableHead>Decisions</TableHead>
+                    <TableHead>Details</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {runs.map((run) => {
+                    const snapshot = snapshotOf(run.snapshot)
+                    const runFindings = findingsByRun.get(run.id) ?? []
+                    const runDecisions = decisionsByRun.get(run.id) ?? []
+                    const count = callCount(run)
+                    return (
+                      <TableRow key={run.id} className="align-top">
+                        <TableCell>{new Date(run.created_at).toLocaleString("en-IN", {
+                          timeZone: "Asia/Kolkata",
+                        })}</TableCell>
+                        <TableCell>{typeof snapshot.route === "string" ? snapshot.route : "-"}</TableCell>
+                        <TableCell>{count === null ? "-" : count === 0 ? "0 (local)" : count}</TableCell>
+                        <TableCell>{runFindings.length}</TableCell>
+                        <TableCell className="max-w-sm whitespace-normal">
+                          {runDecisions.length === 0 ? (
+                            <span className="text-muted-foreground">Pending</span>
+                          ) : (
+                            <div className="space-y-2">
+                              {runDecisions.map((decision) => (
+                                <div key={decision.id} className="space-y-1">
+                                  <Badge
+                                    variant="outline"
+                                    className={`capitalize ${decisionStyles[decision.decision] ?? "border-foreground/20 bg-muted text-muted-foreground"}`}
+                                  >
+                                    {decision.decision}
+                                  </Badge>
+                                  <p className="m-0 break-words text-[13px] leading-5 text-muted-foreground">
+                                    {decision.reason}
+                                  </p>
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      <Link href={`/history/${run.id}`} className="text-indigo-300 underline">
-                        Details
-                      </Link>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-      </section>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Link
+                            href={`/history/${run.id}`}
+                            className="rounded-sm text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            Details
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
       <SiteFooter />
     </main>
   )
@@ -230,9 +258,9 @@ export default function HistoryPage() {
   return (
     <Suspense
       fallback={
-        <main className="vf-shell">
-          <FloatingNav active="history" />
-          <div className="vf-card">Loading review history...</div>
+        <main className="relative z-[1] mx-auto w-full max-w-[1200px] px-4 pb-12 pt-3 sm:px-6">
+          <SiteNav active="history" />
+          <Card><CardContent className="pt-4">Loading review history...</CardContent></Card>
           <SiteFooter />
         </main>
       }
