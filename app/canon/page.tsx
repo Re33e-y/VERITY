@@ -2,6 +2,8 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import FloatingNav from "@/components/floating/FloatingNav"
+import SiteFooter from "@/components/floating/SiteFooter"
 
 interface CanonRule {
   id: string
@@ -67,7 +69,9 @@ export default function CanonPage() {
   }, [])
 
   return (
-    <main className="mx-auto min-h-screen max-w-5xl space-y-8 bg-slate-950 p-6 font-sans text-slate-100 md:p-8">
+    <main className="vf-shell">
+      <FloatingNav active="canon" />
+      <section className="vf-card space-y-8">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-800 pb-6">
         <div>
           <h1 className="text-3xl font-bold text-white">Brand Canon</h1>
@@ -172,6 +176,8 @@ export default function CanonPage() {
           </section>
         </>
       )}
+      </section>
+      <SiteFooter />
     </main>
   )
 }

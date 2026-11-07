@@ -1,5 +1,7 @@
 import Link from "next/link"
 import { Suspense } from "react"
+import FloatingNav from "@/components/floating/FloatingNav"
+import SiteFooter from "@/components/floating/SiteFooter"
 import { supabase } from "@/lib/supabase"
 
 interface ReviewRunRow {
@@ -50,7 +52,15 @@ async function HistoryContent() {
     .limit(100)
 
   if (runsError) {
-    return <main className="p-6 text-red-300">Could not load history: {runsError.message}</main>
+    return (
+      <main className="vf-shell">
+        <FloatingNav active="history" />
+        <div className="vf-notice vf-notice-danger" role="alert">
+          <strong>Could not load history:</strong> {runsError.message}
+        </div>
+        <SiteFooter />
+      </main>
+    )
   }
 
   const runs = (runData ?? []) as ReviewRunRow[]
@@ -66,8 +76,13 @@ async function HistoryContent() {
 
     if (findingsResult.error) {
       return (
-        <main className="p-6 text-red-300">
-          Could not load review findings: {findingsResult.error.message}
+        <main className="vf-shell">
+          <FloatingNav active="history" />
+          <div className="vf-notice vf-notice-danger" role="alert">
+            <strong>Could not load review findings:</strong>{" "}
+            {findingsResult.error.message}
+          </div>
+          <SiteFooter />
         </main>
       )
     }
@@ -83,8 +98,13 @@ async function HistoryContent() {
 
       if (decisionsResult.error) {
         return (
-          <main className="p-6 text-red-300">
-            Could not load decisions: {decisionsResult.error.message}
+          <main className="vf-shell">
+            <FloatingNav active="history" />
+            <div className="vf-notice vf-notice-danger" role="alert">
+              <strong>Could not load decisions:</strong>{" "}
+              {decisionsResult.error.message}
+            </div>
+            <SiteFooter />
           </main>
         )
       }
@@ -115,12 +135,9 @@ async function HistoryContent() {
   const localRuns = knownCallCounts.filter((count) => count === 0).length
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-6xl space-y-6 bg-slate-950 p-6 text-slate-100 md:p-8">
-      <nav className="flex gap-4 text-sm">
-        <Link href="/" className="text-indigo-300 underline">Review</Link>
-        <Link href="/canon" className="text-indigo-300 underline">Canon</Link>
-        <span className="font-semibold">History</span>
-      </nav>
+    <main className="vf-shell">
+      <FloatingNav active="history" />
+      <section className="vf-card space-y-6">
 
       <header>
         <h1 className="text-2xl font-semibold">Review history</h1>
@@ -203,6 +220,8 @@ async function HistoryContent() {
           </table>
         </div>
       )}
+      </section>
+      <SiteFooter />
     </main>
   )
 }
@@ -211,8 +230,10 @@ export default function HistoryPage() {
   return (
     <Suspense
       fallback={
-        <main className="mx-auto min-h-screen w-full max-w-6xl bg-slate-950 p-6 text-slate-400 md:p-8">
-          Loading review history...
+        <main className="vf-shell">
+          <FloatingNav active="history" />
+          <div className="vf-card">Loading review history...</div>
+          <SiteFooter />
         </main>
       }
     >

@@ -1,6 +1,8 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { Suspense } from "react"
+import FloatingNav from "@/components/floating/FloatingNav"
+import SiteFooter from "@/components/floating/SiteFooter"
 import { supabase } from "@/lib/supabase"
 
 type Row = Record<string, unknown>
@@ -31,7 +33,15 @@ async function RunDetailContent({
     .maybeSingle()
 
   if (runError) {
-    return <main className="p-6 text-red-300">Could not load review run: {runError.message}</main>
+    return (
+      <main className="vf-shell">
+        <FloatingNav active="history" />
+        <div className="vf-notice vf-notice-danger" role="alert">
+          <strong>Could not load review run:</strong> {runError.message}
+        </div>
+        <SiteFooter />
+      </main>
+    )
   }
   if (!run) notFound()
 
@@ -41,7 +51,15 @@ async function RunDetailContent({
     .eq("review_run_id", id)
 
   if (findingsError) {
-    return <main className="p-6 text-red-300">Could not load findings: {findingsError.message}</main>
+    return (
+      <main className="vf-shell">
+        <FloatingNav active="history" />
+        <div className="vf-notice vf-notice-danger" role="alert">
+          <strong>Could not load findings:</strong> {findingsError.message}
+        </div>
+        <SiteFooter />
+      </main>
+    )
   }
   const findings = (findingData ?? []) as Row[]
   const findingIds = findings
@@ -57,7 +75,15 @@ async function RunDetailContent({
       .order("created_at", { ascending: true })
 
     if (decisionsError) {
-      return <main className="p-6 text-red-300">Could not load decisions: {decisionsError.message}</main>
+      return (
+        <main className="vf-shell">
+          <FloatingNav active="history" />
+          <div className="vf-notice vf-notice-danger" role="alert">
+            <strong>Could not load decisions:</strong> {decisionsError.message}
+          </div>
+          <SiteFooter />
+        </main>
+      )
     }
     decisions = (decisionData ?? []) as Row[]
   }
@@ -69,7 +95,9 @@ async function RunDetailContent({
       : null
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-4xl space-y-6 bg-slate-950 p-6 text-slate-100 md:p-8">
+    <main className="vf-shell">
+      <FloatingNav active="history" />
+      <section className="vf-card space-y-6">
       <Link href="/history" className="text-sm text-indigo-300 underline">
         Back to history
       </Link>
@@ -158,6 +186,8 @@ async function RunDetailContent({
           </ol>
         )}
       </section>
+      </section>
+      <SiteFooter />
     </main>
   )
 }
@@ -166,8 +196,10 @@ export default function RunDetail({ params }: { params: Promise<{ id: string }> 
   return (
     <Suspense
       fallback={
-        <main className="mx-auto min-h-screen w-full max-w-4xl bg-slate-950 p-6 text-slate-400 md:p-8">
-          Loading review details...
+        <main className="vf-shell">
+          <FloatingNav active="history" />
+          <div className="vf-card">Loading review details...</div>
+          <SiteFooter />
         </main>
       }
     >
