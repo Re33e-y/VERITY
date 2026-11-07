@@ -194,6 +194,8 @@ Historical result: the previous 12-sample benchmark reported 100% recall and pre
 
 Results for the 42-sample set are summarized in the call-budget table above. On the held-out set, offline-only and router modes gave identical accuracy (84.0% recall, 73.3% precision, 25.0% false-positive rate). The router reduces LLM spend but did not improve accuracy on these samples; remaining errors come from offline-engine heuristics. Round 1 numbers were not changed after seeing them.
 
+Held-out, plain LLM + guidelines: not measured (Gemini quota returned HTTP 429 on the first sample; 0 of 30 completed).
+
 The round-one and post-fix benchmark reports are preserved under [`results/`](./results/).
 
 ## Decision API test
