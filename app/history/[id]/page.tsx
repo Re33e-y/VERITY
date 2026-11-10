@@ -110,12 +110,20 @@ async function RunDetailContent({
       <div className="space-y-5">
         <Card>
           <CardHeader className="gap-3">
-            <Link
-              href="/history"
-              className="w-fit rounded-sm text-[13px] text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              Back to history
-            </Link>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Link
+                href="/history"
+                className="w-fit rounded-sm text-[13px] text-primary underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                ← Back to history
+              </Link>
+              <Link
+                href="/review"
+                className="inline-flex min-h-8 items-center justify-center rounded-md border border-border px-3 text-xs font-medium text-foreground no-underline hover:bg-secondary"
+              >
+                Back to audit
+              </Link>
+            </div>
             <CardTitle className="text-2xl">Run {String(run.id).slice(0, 8)}</CardTitle>
             <p className="m-0 break-words text-sm leading-6 text-muted-foreground">
               {displayDate(run.created_at)}

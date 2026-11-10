@@ -1,12 +1,14 @@
 import { createHash, randomUUID } from "node:crypto"
 import { NextResponse } from "next/server"
 import { makeFallbackLLM } from "@/lib/engine/gateway-llm"
-import { reviewContent, supabaseCache, type Policy } from "@/lib/engine/router"
+import { reviewContent, supabaseCache, type AgenticReviewInput, type AgenticReviewResult } from "@/lib/engine/router"
+import { getPolicy as policyFromEnv } from "@/lib/agents/llm"
 import { createReviewEngine, loadEngineConfig } from "@/lib/review/env"
 import { toApiResponse, toSnapshot, toUiFinding } from "@/lib/review/adapter"
 import { supabase } from "@/lib/supabase"
 import type { BrandFact, BrandRule } from "@/lib/review/types"
 import type { Fact, ReviewEngine, Rule, Verdict } from "@/types/engine"
+import type { AgenticResult } from "@/lib/agents/types"
 
 export const maxDuration = 60
 
@@ -53,15 +55,6 @@ function isExpired(item: { expires_at: string | null }, now: number) {
   if (!item.expires_at) return false
   const expiresAt = Date.parse(item.expires_at)
   return !Number.isFinite(expiresAt) || expiresAt <= now
-}
-
-// LLM_POLICY: auto (default) | thorough | off. A legacy LLM_MODE=off is still honored.
-function policyFromEnv(): Policy {
-  const raw = (
-    process.env.LLM_POLICY ??
-    (process.env.LLM_MODE?.toLowerCase() === "off" ? "off" : "auto")
-  ).toLowerCase()
-  return raw === "off" ? "off" : raw === "thorough" ? "thorough" : "auto"
 }
 
 function severityForPipeline(severity: string): BrandRule["severity"] {
@@ -263,6 +256,56 @@ export async function POST(req: Request) {
     // Call-budget router: rules + offline engine first (0 calls), then at most
     // one batched judge call and one batched verifier call, with caching.
     const fallback = makeFallbackLLM()
+    const agenticState: { result: AgenticResult | null } = { result: null }
+    const agenticReview =
+      process.env.REVIEW_AGENTS === "on"
+        ? async ({ offline, ambiguous, rerun }: AgenticReviewInput): Promise<AgenticReviewResult> => {
+            const [{ makeFindingMapper, makeOfflineRunner, supabaseCache: agentCache, toAgentCanon }, { runAgenticReview }] =
+              await Promise.all([
+                import("@/lib/agents/adapters"),
+                import("@/lib/agents/pipeline"),
+              ])
+            const rawCanon = { version: canonVersion, rules, facts: allFacts }
+            const map = makeFindingMapper(rawCanon)
+            const canon = toAgentCanon(rawCanon)
+            const input = {
+              text: content,
+              canon,
+              offline: offline.map(map.to),
+              ambiguous,
+              runOffline: makeOfflineRunner(map, rerun),
+              cache: agentCache(),
+            }
+
+            let pending: Promise<AgenticResult>
+            const previousMaxCalls = process.env.AGENT_MAX_CALLS
+            if (policyFromEnv() === "auto" && Number(previousMaxCalls) > 2) {
+              // The pipeline reads its budget synchronously before its first await.
+              process.env.AGENT_MAX_CALLS = "2"
+              try {
+                pending = runAgenticReview(input)
+              } finally {
+                if (previousMaxCalls === undefined) delete process.env.AGENT_MAX_CALLS
+                else process.env.AGENT_MAX_CALLS = previousMaxCalls
+              }
+            } else {
+              pending = runAgenticReview(input)
+            }
+
+            const result = await pending
+            agenticState.result = result
+            return {
+              findings: result.findings.map(map.from).map((finding) => ({
+                ...finding,
+                canon_version: canonVersion,
+              })),
+              aiUnavailable: result.ai_unavailable,
+              llmCalls: result.calls_used,
+              cached: result.cache_hit,
+              aiError: result.warnings.join("; ") || undefined,
+            }
+          }
+        : undefined
     const result = await reviewContent({
       content,
       rules,
@@ -271,7 +314,9 @@ export async function POST(req: Request) {
       llm: fallback.llm,
       cache: supabaseCache(supabase),
       policy: policyFromEnv(),
+      ...(agenticReview ? { agenticReview } : {}),
     })
+    const agenticResult = agenticState.result
 
     const findings = result.findings
     const degraded = result.route === "degraded"
@@ -311,7 +356,7 @@ export async function POST(req: Request) {
       model:
         result.llmCalls > 0 ? process.env.GEMINI_MODEL ?? "gemini-2.5-flash" : null,
       verifier_model:
-        result.llmCalls > 1 ? process.env.VERIFIER_MODEL ?? null : null,
+        !agenticResult && result.llmCalls > 1 ? process.env.VERIFIER_MODEL ?? null : null,
       prompt_version: PROMPT_VERSION,
       engine,
       route: result.route,
@@ -320,6 +365,15 @@ export async function POST(req: Request) {
       providers_used: fallback.used(),
       ai_status: aiStatus,
       findings: identifiedFindings,
+      ...(agenticResult
+        ? {
+            agents: {
+              status: agenticResult.status,
+              calls_used: agenticResult.calls_used,
+              cache_hit: agenticResult.cache_hit,
+            },
+          }
+        : {}),
     }
 
     const runResult = await supabase
@@ -339,6 +393,18 @@ export async function POST(req: Request) {
       status: "saved" | "partial" | "not_saved"
       reason?: string
     } = { status: "saved" }
+
+    if (!runResult.error && runResult.data && agenticResult) {
+      const { persistTrace } = await import("@/lib/agents/adapters")
+      const traceResult = await persistTrace(runResult.data.id, agenticResult)
+      if (!traceResult.ok) {
+        console.error("Agent trace insert failed:", traceResult.reason)
+        persistence = {
+          status: "partial",
+          reason: traceResult.reason ?? "Could not persist agent trace.",
+        }
+      }
+    }
 
     if (runResult.error) {
       console.error("Review run insert failed:", runResult.error)
@@ -385,6 +451,14 @@ export async function POST(req: Request) {
       ai: { status: aiStatus, error: aiError },
       persistence,
       evaluated: { rules: rules.length, facts: allFacts.length },
+      ...(agenticResult
+        ? {
+            suppressed: agenticResult.suppressed,
+            agentTrace: agenticResult.trace,
+            agentStatus: agenticResult.status,
+            governance: agenticResult.governance,
+          }
+        : {}),
     })
   } catch (error) {
     console.error("Review API failed:", error)

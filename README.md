@@ -1,6 +1,6 @@
 # Verity
 
-Verity reviews marketing copy and product claims against a versioned Brand Canon. Deterministic rules and an offline fact-and-claim evaluator run first; ambiguous claims can be sent to a Gemini judge and verifier. Reviewers can accept, dismiss, or override findings with a written reason. Review runs and decisions are shown in a read-only history.
+Verity reviews marketing copy and product claims against a versioned Brand Canon. Deterministic rules and an offline fact-and-claim evaluator run first; ambiguous claims can be sent to a Gemini judge and verifier, or to the optional agent review layer. Reviewers can accept, dismiss, or override findings with a written reason. Review runs and decisions are shown in a read-only history.
 
 **Live app:** [verity-two-chi.vercel.app](https://verity-two-chi.vercel.app)
 
@@ -20,11 +20,13 @@ Verity reviews marketing copy and product claims against a versioned Brand Canon
 1. Deterministic checks run first.
 2. The offline engine checks facts, quantities, expiry dates, tone, readability, and prompt-injection patterns.
 3. Only uncertain claims are routed to the model.
-4. A single batched Gemini judge call handles ambiguous claims.
-5. A verifier pass is reserved for high-impact contradictions. A model cannot clear a Contradicted finding raised by the rules.
+4. By default, a single batched Gemini judge call handles ambiguous claims.
+5. A verifier pass is reserved for high-impact contradictions. A model cannot clear a rules-raised Contradicted finding or a grade A finding.
 6. Identical reviews can use a Supabase-backed cache. Cache keys include model names; expired entries count as misses.
 7. Model calls time out after 20 seconds. If no provider succeeds, the review falls back to offline findings, withholds the score, and reports that the AI judge is unavailable.
 8. A reviewer records a decision and reason for each finding.
+
+With `REVIEW_AGENTS=on`, the agent layer replaces the Gemini judge/verifier only for claims the router already marks ambiguous. It combines specialist checks and a critic within the call budget, records notes and an audit trace, and only returns rewrite patches verified by re-running the offline checks. Deterministic and offline checks remain first. With `LLM_POLICY=off`, reviews stay offline-only and the agent layer makes no model calls.
 
 ## Call budget
 
@@ -57,6 +59,7 @@ Citation validity was 100% and prompt-injection leaks were 0 in the router runs.
 - The original 12 samples were used while tuning the rules, so their 100% result is a development result, not evidence of generalization. An earlier run reported 68.8% precision before a label correction; the corrected labels produced 100% on this tuned set.
 - The held-out results are the generalization evidence. Round-one results were not changed after they were seen.
 - The plain-LLM baseline did not complete: Gemini returned HTTP 429 on the first sample, so no baseline metric is reported.
+- These benchmarks measure the existing router with `REVIEW_AGENTS` unset; they are not results for the agent layer.
 - All samples are synthetic. No customer content was used.
 
 Benchmark reports are kept in [`results/`](./results/).
@@ -68,6 +71,7 @@ Benchmark reports are kept in [`results/`](./results/).
 - **Injection detection is imperfect:** the benchmark reported no prompt-injection leaks, but the engine missed H18 as a finding.
 - **Small sample size:** the evaluation has 42 samples, including 30 held-out samples, so percentages have substantial uncertainty.
 - **Gemini quota:** when quota is exhausted, ambiguous reviews fall back to offline results. Cached reviews can still be served.
+- **Agent layer:** its tests use mocked model responses. No benchmark or production-accuracy claim is made for `REVIEW_AGENTS=on`.
 - **OpenRouter fallback:** disabled in production. It is implemented and tested with mocks, but no fallback model is configured. Any future use requires `data_collection: deny`, zero-data-retention routing, and review of the provider’s data-use policy.
 - **No authentication:** review, decision, and history endpoints are open for demo access. This is not suitable for untrusted production use. The review endpoint has a global limit of 20 reviews per minute and a 5,000-character content limit; these are demo boundaries.
 
@@ -113,6 +117,11 @@ LLM_POLICY=auto
 GEMINI_API_KEY=YOUR_GEMINI_API_KEY
 GEMINI_MODEL=gemini-2.5-flash
 VERIFIER_MODEL=gemini-2.5-flash-lite
+REVIEW_AGENTS=off
+# Optional agent settings:
+# AGENT_MAX_CALLS=2
+# AGENT_DEADLINE_MS=25000
+# AGENT_CACHE_TTL_HOURS=24
 
 # Optional OpenRouter fallback (disabled in production):
 # OPENROUTER_API_KEY=
@@ -132,8 +141,13 @@ Configuration notes:
 
 - Keep `SUPABASE_SERVICE_ROLE_KEY` and `GEMINI_API_KEY` server-side; never prefix them with `NEXT_PUBLIC_`.
 - `LLM_POLICY` accepts `auto`, `thorough`, or `off`. Set it to `off` for offline-only reviews. The legacy `LLM_MODE=off` switch is also supported.
+- `REVIEW_AGENTS=on` enables the agent review layer; leave it unset or set it to `off` to keep the current router.
+- `AGENT_MAX_CALLS` optionally limits agent calls; `auto` is capped at 2 logical calls per review. `thorough` defaults to 6 calls. `AGENT_DEADLINE_MS` defaults to 25,000 ms and `AGENT_CACHE_TTL_HOURS` defaults to 24 hours.
+- With `LLM_POLICY=off` (or legacy `LLM_MODE=off`), the normal offline router runs and no agent model calls are made, even when `REVIEW_AGENTS=on`.
 - The default review route has a 5,000-character limit. `REVIEW_MAX_CHARS` applies only to the v2 pipeline.
 - `REVIEW_PIPELINE=v2` opts into the experimental provider pipeline. Apply `supabase/migrations/20261106_llm_cache_and_provider_health.sql` first. Leave it unset to use the default route.
+- When using the agent layer, apply `supabase/migrations/20261110_agent_traces.sql` in the Supabase SQL editor before enabling it.
+- The agent migration adds the `agent_traces` audit table and nullable `patch` and `ai_notes` columns to `findings`. Trace persistence failures are reported through the existing persistence status.
 - The router cache and v2 cache both use the migration’s `llm_cache` table.
 - Before enabling an external provider, review its data-use policy and disclose the configured provider and model. Use synthetic samples for provider testing.
 
@@ -154,6 +168,15 @@ Paste this synthetic sample into the review page:
 With the seeded canon, expect findings for phrases such as `the best`, `Verification Bot`, and `proof gate`; numeric and money claims may be routed for human legal review, and outdated trial claims may be flagged. The legal-review route is deliberately conservative about numbers and money.
 
 The offline engine uses sentence offsets, fact-keyword overlap, quantity normalization, negation checks, a weighted tone lexicon, readability heuristics, and prompt-injection detection. Grade A findings require strong evidence, such as an expired fact, quantity mismatch, or clear injection pattern. Heuristic warnings are grade C and tagged as offline rather than model-verified.
+
+To try the agent layer locally, first apply the migration, then set `REVIEW_AGENTS=on`. Keep using synthetic text. The agent test suite stubs `fetch`, so it does not contact Gemini:
+
+```bash
+npx tsc --noEmit
+npx tsx scripts/test-agents.mts
+```
+
+For an offline-only check, set `LLM_POLICY=off`; this exercises the existing offline review behavior without invoking the agent model pipeline.
 
 ## Run the benchmark
 

@@ -35,6 +35,19 @@ export interface ReviewResult {
   rejected: number; // AI suggestions dropped by the code checks (grade D)
   aiError?: string;
 }
+export interface AgenticReviewResult {
+  findings: Finding[];
+  aiUnavailable: boolean;
+  llmCalls: number;
+  cached: boolean;
+  aiError?: string;
+}
+export interface AgenticReviewInput {
+  offline: Finding[];
+  ambiguous: { start: number; end: number }[];
+  /** Re-runs the deterministic + offline engines on other text. The agent layer uses it to verify patches. */
+  rerun: (text: string) => Finding[];
+}
 
 const PROMPT_VERSION = "router-v1";
 let breakerUntil = 0; // per warm server instance; good enough to stop quota hammering
@@ -127,6 +140,7 @@ Return ONLY JSON: {"items":[{"id":number,"relation":"supports"|"contradicts"|"un
 export async function reviewContent(o: {
   content: string; rules: Rule[]; facts: Fact[]; canon: number;
   llm: LLM; cache?: Cache; policy?: Policy;
+  agenticReview?: (input: AgenticReviewInput) => Promise<AgenticReviewResult>;
 }): Promise<ReviewResult> {
   const { content, rules, facts, canon, llm, cache } = o;
   const policy = o.policy ?? "auto";
@@ -144,8 +158,55 @@ export async function reviewContent(o: {
   const tonePass = policy === "thorough" && toneRules.length > 0;
 
   const local = (): Finding[] => [...det, ...off].sort(bySpan);
-  if (items.length === 0 && !tonePass)
+  const rerun = (text: string): Finding[] => {
+    const d = runDeterministic(text, rules, canon);
+    return [...d, ...runOfflineEngine(text, rules, facts, canon, d)].sort(bySpan);
+  };
+  // `idle` is the route when the agent layer made no model call and served nothing from cache.
+  const viaAgent = (agent: AgenticReviewResult, idle: Route): ReviewResult => ({
+    findings: agent.findings.sort(bySpan),
+    route: agent.aiUnavailable ? "degraded" : agent.llmCalls > 0 || agent.cached ? "hybrid" : idle,
+    llmCalls: agent.llmCalls,
+    cached: agent.cached,
+    rejected: 0,
+    ...(agent.aiError ? { aiError: agent.aiError } : {}),
+  });
+
+  if (o.agenticReview && policy !== "off") {
+    // Agent-First Architecture:
+    // The Agentic Orchestrator and Specialists are the primary intelligence, backed by
+    // deterministic verification (Grade A). Determine ambiguous & claim spans to investigate.
+    const claimSpans = items.flatMap((f) =>
+      f.span_start !== null && f.span_end !== null
+        ? [{ start: f.span_start, end: f.span_end }]
+        : []
+    );
+    const uncertainSpans = off
+      .filter((f) => f.grade !== "A" && f.span_start !== null && f.span_end !== null)
+      .map((f) => ({ start: f.span_start!, end: f.span_end! }));
+
+    const activeAmbiguous =
+      claimSpans.length > 0
+        ? claimSpans
+        : uncertainSpans.length > 0
+          ? uncertainSpans
+          : content.trim().length > 0
+            ? [{ start: 0, end: content.length }]
+            : [];
+
+    return viaAgent(
+      await o.agenticReview({
+        offline: local(),
+        ambiguous: activeAmbiguous,
+        rerun,
+      }),
+      "hybrid"
+    );
+  }
+
+  if (items.length === 0 && !tonePass) {
     return { findings: local(), route: "local", llmCalls: 0, cached: false, rejected: 0 };
+  }
 
   let calls = 0;
   let rejected = 0;

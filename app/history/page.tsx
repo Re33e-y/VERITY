@@ -158,12 +158,20 @@ async function HistoryContent() {
     <main className="relative z-[1] mx-auto w-full max-w-[1200px] px-4 pb-12 pt-3 sm:px-6">
       <SiteNav active="history" />
       <Card className="gap-6">
-        <CardHeader>
-          <CardTitle className="text-2xl">Review history</CardTitle>
-          <p className="m-0 text-sm leading-6 text-muted-foreground">
-            Audit trail of review runs, findings, LLM usage, and human decisions.
-            Submitted text is visible here.
-          </p>
+        <CardHeader className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div>
+            <CardTitle className="text-2xl">Review history</CardTitle>
+            <p className="m-0 text-sm leading-6 text-muted-foreground">
+              Audit trail of review runs, findings, LLM usage, and human decisions.
+              Submitted text is visible here.
+            </p>
+          </div>
+          <Link
+            href="/review"
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-border px-4 text-sm font-medium text-foreground no-underline hover:bg-secondary"
+          >
+            Back to audit
+          </Link>
         </CardHeader>
         <CardContent className="space-y-6">
           <section aria-label="History summary" className="grid grid-cols-2 gap-3 md:grid-cols-4">

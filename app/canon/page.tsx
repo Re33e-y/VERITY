@@ -97,7 +97,7 @@ export default function CanonPage() {
               </p>
             </div>
             <Link
-              href="/"
+              href="/review"
               className="inline-flex min-h-9 w-fit items-center rounded-full border border-foreground/15 px-4 text-sm text-foreground no-underline transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               Back to audit

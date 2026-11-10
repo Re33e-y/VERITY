@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VERITY — Agentic Brand Governance & Content Verification</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; background: #F4F1EA; color: #111111; font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 17px; line-height: 1.5; overflow-x: hidden; }
+html { scroll-behavior: smooth; }
+a { color: inherit; }
+.float { animation: vfloat 3.2s ease-in-out infinite; }
+@keyframes vfloat { 50% { transform: translateY(-10px); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .float { animation: none; } }
+
+.neo-btn {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-weight: 700;
+  border: 2px solid #111111;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+  text-decoration: none;
+}
+.neo-btn:hover {
+  transform: translate(-2px, -2px);
+}
+.neo-btn:active {
+  transform: translate(2px, 2px);
+}
+.sample-chip {
+  background: #1E1E1E;
+  color: #F4F1EA;
+  border: 1px solid #444;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-radius: 0;
+}
+.sample-chip:hover {
+  background: #3B66FF;
+  color: #FFFFFF;
+  border-color: #111111;
+}
+.finding-card {
+  background: #1E1E1E;
+  border: 2px solid #333;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.finding-card.high {
+  border-left: 6px solid #EF4444;
+}
+.finding-card.medium {
+  border-left: 6px solid #FFD166;
+}
+.finding-card.low {
+  border-left: 6px solid #7BE0A4;
+}
+</style>
+</head>
+<body>
+
+
+<div id="top" style="background: #F4F1EA; color: #111111; font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 17px; line-height: 1.5; width: 100%; overflow-x: hidden" data-canvas-width="1360" data-canvas-height="4700" data-document-role="page" data-label="Landing page">
+
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 48px; border-bottom: 2px solid #111111">
+<a href="/" style="display: flex; align-items: center; gap: 10px; text-decoration: none; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; font-size: 28px; letter-spacing: -0.02em; color: #111111">
+<svg viewBox="0 0 14 14" width="30" height="30" shape-rendering="crispEdges" aria-hidden="true"><g fill="#111111"><rect x="4" y="0" width="6" height="1"></rect><rect x="2" y="1" width="10" height="1"></rect><rect x="1" y="2" width="12" height="10"></rect><rect x="1" y="12" width="3" height="1"></rect><rect x="5" y="12" width="4" height="1"></rect><rect x="10" y="12" width="3" height="1"></rect></g><rect x="3" y="4" width="3" height="3" fill="#00D2FF"></rect><rect x="8" y="4" width="3" height="3" fill="#00D2FF"></rect></svg>
+VERITY
+</a>
+<nav style="display: flex; flex-wrap: wrap; gap: 14px; font-weight: 600; font-size: 15px; align-items: center">
+<button type="button" class="nav-tab-btn" data-target="workspace" style="background: #3B66FF; color: #FFFFFF; border: 1px solid #111111; padding: 6px 14px; cursor: pointer; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; box-shadow: 2px 2px 0 #111111">Review Workspace</button>
+<a href="#architecture" style="text-decoration: none; color: #111111; padding: 6px 4px">Architecture</a>
+<a href="#split" style="text-decoration: none; color: #111111; padding: 6px 4px">Division</a>
+<a href="#lifecycle" style="text-decoration: none; color: #111111; padding: 6px 4px">Lifecycle</a>
+<a href="#report" style="text-decoration: none; color: #111111; padding: 6px 4px">Audit trail</a>
+<button type="button" class="nav-tab-btn" data-target="canon" style="text-decoration: none; padding: 6px 14px; border: 1px solid #111; background: #FFFDF8; color: #111111; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; cursor: pointer">Brand Canon</button>
+<button type="button" class="nav-tab-btn" data-target="history" style="text-decoration: none; padding: 6px 14px; border: 1px solid #111; background: #FFFDF8; color: #111111; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; cursor: pointer">Decision History</button>
+</nav>
+</header>
+
+
+<section style="display: flex; flex-wrap: wrap; align-items: center; gap: 56px; padding: 72px 48px 80px; max-width: 1264px; margin: 0 auto; box-sizing: content-box">
+<div style="flex: 1 1 540px; min-width: 0; display: flex; flex-direction: column; gap: 28px">
+<div style="align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; background: #FFFFFF; border: 1px solid #111111; box-shadow: 2px 2px 0px #3B66FF; padding: 6px 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase">
+  <span style="color: #10B981; font-size: 12px; line-height: 1">●</span>
+  <span>active canon v1.0</span>
+  <span style="color: #CFCAC0">·</span>
+  <span>AGENTIC BRAND GOVERNANCE &amp; VERIFICATION</span>
+</div>
+<h1 style="margin: 0; font-family: 'Space Grotesk', -apple-system, sans-serif; font-weight: 800; font-size: clamp(48px, 6.5vw, 80px); line-height: 1.02; letter-spacing: -0.04em; color: #111111">
+  AI reasons.
+  <br>
+  <span style="background: #3B66FF; color: #FFFFFF; display: inline-block; padding: 2px 14px; border: 2px solid #111111; box-shadow: 4px 4px 0px #111111; transform: rotate(-0.5deg); margin: 6px 0">
+    Code verifies.
+  </span>
+  <br>
+  <span style="text-decoration: underline; text-decoration-color: #3B66FF; text-decoration-thickness: 4px; text-underline-offset: 8px">
+    Humans
+  </span> govern.
+</h1>
+<p style="margin: 0; max-width: 540px; font-family: 'Space Grotesk', sans-serif; font-size: 19px; line-height: 1.6; color: #4A4740">
+  Verity routes copy through <b>specialist AI agents</b>, requires <b>deterministic code</b> to prove every finding, and reserves <b>human sign-off</b> as the final law.
+</p>
+<div style="display: flex; flex-wrap: wrap; gap: 14px">
+<a href="#try" class="neo-btn" style="background: #111111; color: #FFFFFF; padding: 14px 28px; border: 2px solid #111111; box-shadow: 5px 5px 0 #3B66FF; text-decoration: none; font-weight: 700">Try Live Audit ↓</a>
+</div>
+</div>
+
+<div style="flex: 1 1 400px; min-width: 0; position: relative; display: flex; flex-direction: column; align-items: center">
+<svg class="float" viewBox="0 0 24 24" width="150" height="150" shape-rendering="crispEdges" role="img" aria-label="Verity Ghost Mascot" style="position: relative; z-index: 2; margin-bottom: -28px; align-self: flex-end; margin-right: 24px;">
+  <!-- Drop Shadow / Silhouette -->
+  <g fill="#111111">
+    <rect x="8" y="1" width="8" height="1"></rect>
+    <rect x="5" y="2" width="14" height="1"></rect>
+    <rect x="4" y="3" width="16" height="1"></rect>
+    <rect x="3" y="4" width="18" height="2"></rect>
+    <rect x="2" y="6" width="20" height="11"></rect>
+    <rect x="2" y="17" width="3" height="3"></rect>
+    <rect x="7" y="17" width="4" height="2"></rect>
+    <rect x="13" y="17" width="4" height="2"></rect>
+    <rect x="19" y="17" width="3" height="3"></rect>
+    <rect x="3" y="20" width="1" height="1"></rect>
+    <rect x="8" y="19" width="2" height="2"></rect>
+    <rect x="14" y="19" width="2" height="2"></rect>
+    <rect x="20" y="20" width="1" height="1"></rect>
+  </g>
+  <!-- Off-White / Cream Ghost Body -->
+  <g fill="#FFFDF8">
+    <rect x="8" y="2" width="8" height="1"></rect>
+    <rect x="5" y="3" width="14" height="1"></rect>
+    <rect x="4" y="4" width="16" height="2"></rect>
+    <rect x="3" y="6" width="18" height="11"></rect>
+    <rect x="3" y="17" width="2" height="2"></rect>
+    <rect x="8" y="17" width="2" height="2"></rect>
+    <rect x="14" y="17" width="2" height="2"></rect>
+    <rect x="19" y="17" width="2" height="2"></rect>
+  </g>
+  <!-- Eye Sockets & Eyeballs -->
+  <rect x="6" y="8" width="4" height="4" fill="#111111"></rect>
+  <rect x="14" y="8" width="4" height="4" fill="#111111"></rect>
+  <!-- Glowing Cyan Visor Pupils -->
+  <rect x="7" y="9" width="2" height="2" fill="#00E5FF"></rect>
+  <rect x="15" y="9" width="2" height="2" fill="#00E5FF"></rect>
+  <!-- Cheerful / Focused Sensor Smirk -->
+  <rect x="11" y="13" width="2" height="1" fill="#111111"></rect>
+</svg>
+<div style="width: 100%; box-sizing: border-box; background: #111111; color: #F4F1EA; border: 2px solid #111111; box-shadow: 6px 6px 0px #3B66FF; padding: 24px; display: flex; flex-direction: column; gap: 16px; position: relative; z-index: 1">
+<div style="display: flex; justify-content: space-between; gap: 12px; font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #CFCAC0"><span>Finding 01 of 03</span><span>Illustrative example</span></div>
+<p style="margin: 0; font-size: 22px; line-height: 1.3; font-weight: 500">“Our <mark style="background: #FFD166; color: #111111; padding: 0 4px">free trial lasts 30 days</mark>.”</p>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600">
+<span style="background: #EF4444; color: #FFFFFF; padding: 4px 8px">CONTRADICTED</span>
+<span style="border: 1px solid #F4F1EA; padding: 3px 8px">SEVERITY: HIGH</span>
+<span style="border: 1px solid #F4F1EA; padding: 3px 8px">EVIDENCE: CANON-CITED</span>
+<span style="border: 1px solid #F4F1EA; padding: 3px 8px">CONFIDENCE: 0.90</span>
+</div>
+<div style="border-left: 3px solid #7BE0A4; padding-left: 12px; color: #CFCAC0; font-size: 15px"><span style="font-family: 'JetBrains Mono', monospace; color: #7BE0A4; font-weight: 600">F-TRIAL</span> · The free trial lasts 14 days.</div>
+<div style="background: #1E1E1E; padding: 12px 14px; font-size: 15px"><span style="color: #CFCAC0">Suggested fix</span><br>“the free trial lasts 14 days” <span style="margin-left: 8px; background: #7BE0A4; color: #111111; padding: 2px 8px; font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; white-space: nowrap">✓ RE-VERIFIED OFFLINE</span></div>
+<div style="display: flex; flex-wrap: wrap; gap: 10px" id="hero-decision-buttons">
+<button type="button" id="hero-btn-approve" class="neo-btn" style="font: inherit; font-weight: 700; background: #7BE0A4; color: #111111; border: 0; padding: 10px 18px; min-height: 44px">Approve</button>
+<button type="button" id="hero-btn-reject" class="neo-btn" style="font: inherit; font-weight: 700; background: transparent; color: #F4F1EA; border: 2px solid #F4F1EA; padding: 8px 18px; min-height: 44px">Reject</button>
+<button type="button" id="hero-btn-revise" class="neo-btn" style="font: inherit; font-weight: 700; background: transparent; color: #F4F1EA; border: 2px solid #F4F1EA; padding: 8px 18px; min-height: 44px">Revise</button>
+</div>
+<div id="hero-decision-feedback" style="display:none; font-family:'JetBrains Mono', monospace; font-size:13px; color:#7BE0A4; padding:8px 12px; background:#1E1E1E; border-left:3px solid #7BE0A4"></div>
+</div>
+</div>
+</section>
+
+
+<section style="border-top: 2px solid #111111; border-bottom: 2px solid #111111; background: #FFFDF8">
+<div style="max-width: 1264px; margin: 0 auto; display: flex; flex-wrap: wrap">
+<div style="flex: 1 1 260px; padding: 28px 48px; border-right: 2px solid #111111"><div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 44px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1">0</div><div style="margin-top: 6px; color: #3A3832">model calls on reviews the rules can settle</div></div>
+<div style="flex: 1 1 260px; padding: 28px 48px; border-right: 2px solid #111111"><div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 44px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1">≤ 2</div><div style="margin-top: 6px; color: #3A3832">model calls per review in auto mode, a hard cap</div></div>
+<div style="flex: 1 1 260px; padding: 28px 48px; border-right: 2px solid #111111"><div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 44px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1">Grade A</div><div style="margin-top: 6px; color: #3A3832">deterministic evidence no model can overrule</div></div>
+<div style="flex: 1 1 260px; padding: 28px 48px"><div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 44px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1">100%</div><div style="margin-top: 6px; color: #3A3832">of suggested fixes re-checked before you see them</div></div>
+</div>
+</section>
+
+
+
+
+
+<section id="architecture" style="background: #111111; color: #F4F1EA; padding: 96px 48px">
+<div style="max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: #3B66FF">The architecture</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; font-size: clamp(32px, 5vw, 56px); line-height: 1.1; letter-spacing: -0.03em">An agent-led review, with code holding the line</h2>
+<p style="margin: 0 0 20px; max-width: 700px; font-size: 19px; color: #CFCAC0">Agents understand the context and plan the work. The deterministic engine is not a fallback. It is the verification layer every agent finding has to pass through.</p>
+
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch">
+<div style="flex: 0 0 170px; font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.08em; color: #CFCAC0; padding-top: 18px">01<br>INPUT &amp; CONTEXT</div>
+<div style="flex: 1 1 520px; border: 2px dashed #8E897E; padding: 18px 22px; display: flex; flex-wrap: wrap; gap: 10px">
+<span style="border: 1px solid #F4F1EA; padding: 6px 12px">Marketing copy</span>
+<span style="border: 1px solid #F4F1EA; padding: 6px 12px">Brand Canon (versioned)</span>
+<span style="border: 1px solid #F4F1EA; padding: 6px 12px">Approved facts</span>
+<span style="border: 1px solid #F4F1EA; padding: 6px 12px">Policies</span>
+</div>
+</div>
+<div style="padding-left: 190px; color: #3B66FF; font-size: 22px; line-height: 1" aria-hidden="true">↓</div>
+
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch">
+<div style="flex: 0 0 170px; font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.08em; color: #CFCAC0; padding-top: 18px">02<br>CORE<br>INTELLIGENCE</div>
+<div style="flex: 1 1 520px; min-width: 0; background: #F4F1EA; color: #111111; border: 2px solid #F4F1EA; box-shadow: 6px 6px 0 #3B66FF; padding: 22px; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #111111; color: #F4F1EA; padding: 16px 18px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px">
+<div><div style="font-weight: 700; font-size: 20px">Orchestrator Agent</div><div style="color: #CFCAC0; font-size: 15px">Understands the task, builds the plan, routes work, tracks the call budget.</div></div>
+<span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; background: #7BE0A4; color: #111111; padding: 4px 8px; white-space: nowrap">CODE · 0 TOKENS</span>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 14px">
+<div style="flex: 1 1 200px; border: 2px solid #111111; padding: 14px 16px; background: #FFFDF8"><div style="font-weight: 700">Claim Verification</div><div style={{"color":"#3A3832","fontSize":"15px"}}>Evidence and factual accuracy against approved facts.</div></div>
+<div style="flex: 1 1 200px; border: 2px solid #111111; padding: 14px 16px; background: #FFFDF8"><div style="font-weight: 700">Brand Compliance &amp; Voice</div><div style="color: #3A3832; font-size: 15px">Rules, terminology, tone and brand identity.</div></div>
+<div style="flex: 1 1 200px; border: 2px solid #111111; padding: 14px 16px; background: #FFFDF8"><div style="font-weight: 700">Risk Intelligence</div><div style="color: #3A3832; font-size: 15px">Legal and reputational flags, escalated to a human.</div></div>
+</div>
+<div style="border: 2px solid #111111; background: #3B66FF; color: #FFFFFF; padding: 14px 18px"><div style="font-weight: 700">Critic &amp; Consensus Agent</div><div style="font-size: 15px; color: #FFFFFF">Challenges findings, resolves disagreements, reports uncertainty. It never just votes: deterministic evidence cannot be outvoted.</div></div>
+</div>
+</div>
+<div style="padding-left: 190px; color: #3B66FF; font-size: 22px; line-height: 1" aria-hidden="true">↓</div>
+
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch">
+<div style="flex: 0 0 170px; font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.08em; color: #CFCAC0; padding-top: 18px">03<br>VERIFICATION<br>&amp; EVIDENCE</div>
+<div style="flex: 1 1 520px; min-width: 0; border: 2px solid #7BE0A4; padding: 22px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: center"><div style="font-weight: 700; font-size: 20px; color: #7BE0A4">Deterministic Verification Engine</div><span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; border: 1px solid #7BE0A4; color: #7BE0A4; padding: 3px 8px">THE LAST WORD</span></div>
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<span style="background: #1E1E1E; padding: 6px 12px">Rule validation</span>
+<span style="background: #1E1E1E; padding: 6px 12px">Brand Canon matching</span>
+<span style="background: #1E1E1E; padding: 6px 12px">Numbers, dates, quantities</span>
+<span style="background: #1E1E1E; padding: 6px 12px">Expiry &amp; negation checks</span>
+<span style="background: #1E1E1E; padding: 6px 12px">Injection detection</span>
+<span style="background: #1E1E1E; padding: 6px 12px">Patch re-verification</span>
+</div>
+</div>
+</div>
+<div style="padding-left: 190px; color: #3B66FF; font-size: 22px; line-height: 1" aria-hidden="true">↓</div>
+
+
+<div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: stretch">
+<div style="flex: 0 0 170px; font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.08em; color: #CFCAC0; padding-top: 18px">04<br>HUMAN<br>GOVERNANCE</div>
+<div style="flex: 1 1 520px; min-width: 0; border: 2px solid #FFD166; padding: 22px; display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; align-items: center">
+<div style="display: flex; flex-wrap: wrap; gap: 10px">
+<span style="background: #FFD166; color: #111111; font-weight: 700; padding: 8px 16px">Approve</span>
+<span style="background: #FFD166; color: #111111; font-weight: 700; padding: 8px 16px">Reject</span>
+<span style="background: #FFD166; color: #111111; font-weight: 700; padding: 8px 16px">Request revision</span>
+</div>
+<div style="color: #CFCAC0; font-size: 15px; max-width: 320px">Every decision is saved with its reason, next to the findings, evidence, patches and agent trace.</div>
+</div>
+</div>
+<p style="margin: 24px 0 0; font-size: 15px; color: #CFCAC0; max-width: 760px">Brand Compliance and Brand Voice run as one agent today, so the whole review stays inside a two-call budget. They split when the budget allows.</p>
+</div>
+</section>
+<section id="split" style="padding: 96px 48px; max-width: 1264px; margin: 0 auto; box-sizing: border-box">
+<div style="display: flex; direction: column; gap: 14px; margin-bottom: 36px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: #3B66FF">Division of labor</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; font-size: clamp(32px, 5vw, 56px); line-height: 1.1; letter-spacing: -0.03em">Each part does the one job it is good at</h2>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 24px">
+<div style="flex: 1 1 300px; background: #FFFDF8; border: 2px solid #111111; box-shadow: 6px 6px 0 #3B66FF; padding: 28px; display: flex; flex-direction: column; gap: 14px">
+<div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 34px; font-weight: 700; letter-spacing: -0.02em">AI reasons</div>
+<ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; color: #3A3832"><li>Reads the context and intent</li><li>Finds the approved evidence</li><li>Proposes minimal rewrites</li><li>Challenges its own findings</li></ul>
+</div>
+<div style="flex: 1 1 300px; background: #FFFDF8; border: 2px solid #111111; box-shadow: 6px 6px 0 #7BE0A4; padding: 28px; display: flex; flex-direction: column; gap: 14px">
+<div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 34px; font-weight: 700; letter-spacing: -0.02em">Code verifies</div>
+<ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; color: #3A3832"><li>Exact numbers, dates and quantities</li><li>Explicit brand restrictions</li><li>Injection and restricted content</li><li>Re-checks every proposed patch</li></ul>
+</div>
+<div style="flex: 1 1 300px; background: #FFFDF8; border: 2px solid #111111; box-shadow: 6px 6px 0 #FFD166; padding: 28px; display: flex; flex-direction: column; gap: 14px">
+<div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 34px; font-weight: 700; letter-spacing: -0.02em">Humans govern</div>
+<ul style="margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; color: #3A3832"><li>Approve, reject or revise</li><li>Decide every high-risk claim</li><li>Leave a reason for the record</li><li>Hold the final authority</li></ul>
+</div>
+</div>
+</section>
+
+
+<section id="lifecycle" style="background: #FFFDF8; border-top: 2px solid #111111; border-bottom: 2px solid #111111; padding: 96px 48px">
+<div style="max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: #3B66FF">The lifecycle</div>
+<h2 style="margin: 0 0 24px; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; font-size: clamp(32px, 5vw, 56px); line-height: 1.1; letter-spacing: -0.03em">Ten controlled steps, not a pile of prompts</h2>
+<div style="display: flex; flex-wrap: wrap; gap: 16px">
+<div style="flex: 1 1 200px; border: 2px solid #111111; background: #F4F1EA; padding: 18px"><div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; color: #3B66FF">01</div><div style="font-weight: 700">Ingest</div><div style="font-size: 15px; color: #3A3832">Draft, metadata and the Canon version arrive.</div></div>
+<div style="flex: 1 1 200px; border: 2px solid #111111; background: #F4F1EA; padding: 18px"><div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; color: #3B66FF">02</div><div style="font-weight: 700">Understand</div><div style="font-size: 15px; color: #3A3832">The orchestrator extracts claims and plans the review.</div></div>
+<div style="flex: 1 1 200px; border: 2px solid #111111; background: #F4F1EA; padding: 18px"><div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; color: #3B66FF">03</div><div style="font-weight: 700">Delegate</div><div style="font-size: 15px; color: #3A3832">Specialists get only what code could not settle.</div></div>
+<div style="flex: 1 1 200px; border: 2px solid #111111; background: #F4F1EA; padding: 18px"><div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; color: #3B66FF">04</div><div style="font-weight: 700">Verify evidence</div><div style="font-size: 15px; color: #3A3832">Facts, rules and exact numbers checked by code.</div></div>
+<div style="flex: 1 1 200px; border: 2px solid #111111; background: #F4F1EA; padding: 18px"><div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; color: #3B66FF">05</div><div style="font-weight: 700">Critique</div><div style="font-size: 15px; color: #3A3832">The critic weighs disagreements and missing evidence.</div></div>
+<div style="flex: 1 1 200px; border: 2px solid #111111; background: #F4F1EA; padding: 18px"><div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; color: #3B66FF">06</div><div style="font-weight: 700">Classify risk</div><div style="font-size: 15px; color: #3A3832">Severity, confidence and evidence kept apart.</div></div>
+<div style="flex: 1 1 200px; border: 2px solid #111111; background: #F4F1EA; padding: 18px"><div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; color: #3B66FF">07</div><div style="font-weight: 700">Plan fixes</div><div style="font-size: 15px; color: #3A3832">Rewrites that keep the author's meaning.</div></div>
+<div style="flex: 1 1 200px; border: 2px solid #111111; background: #F4F1EA; padding: 18px"><div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; color: #3B66FF">08</div><div style="font-weight: 700">Re-verify</div><div style="font-size: 15px; color: #3A3832">Every patch is re-checked. Failures are rejected.</div></div>
+<div style="flex: 1 1 200px; border: 2px solid #111111; background: #3B66FF; color: #FFFFFF; padding: 18px"><div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums">09</div><div style="font-weight: 700">Human decision</div><div style="font-size: 15px; color: #FFFFFF">Approve, reject or revise, with a reason.</div></div>
+<div style="flex: 1 1 200px; border: 2px solid #111111; background: #F4F1EA; padding: 18px"><div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 32px; font-weight: 700; font-variant-numeric: tabular-nums; color: #3B66FF">10</div><div style="font-weight: 700">Audit</div><div style="font-size: 15px; color: #3A3832">Findings, trace, patches and decisions are saved.</div></div>
+</div>
+</div>
+</section>
+
+
+<section style="padding: 96px 48px; max-width: 1264px; margin: 0 auto; box-sizing: border-box">
+<div style="display: flex; flex-direction: column; gap: 14px; margin-bottom: 32px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: #3B66FF">Guardrails</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; font-size: clamp(32px, 5vw, 56px); line-height: 1.1; letter-spacing: -0.03em">When agents disagree, evidence wins</h2>
+<p style="margin: 0; max-width: 700px; font-size: 19px; color: #3A3832">Verity never forces a consensus the evidence does not support. These rules are code, not prompts.</p>
+</div>
+<div style="border: 2px solid #111111; background: #FFFDF8; box-shadow: 6px 6px 0 #111111">
+<div style="display: flex; flex-wrap: wrap; border-bottom: 2px solid #111111"><div style="flex: 1 1 300px; padding: 16px 22px; font-weight: 700">Agents disagree</div><div style="flex: 1 1 300px; padding: 16px 22px; color: #3A3832">The critic investigates. A vote does not decide.</div></div>
+<div style="display: flex; flex-wrap: wrap; border-bottom: 2px solid #111111"><div style="flex: 1 1 300px; padding: 16px 22px; font-weight: 700">A hard rule is violated</div><div style="flex: 1 1 300px; padding: 16px 22px; color: #3A3832">The violation is preserved. No model can clear it.</div></div>
+<div style="display: flex; flex-wrap: wrap; border-bottom: 2px solid #111111"><div style="flex: 1 1 300px; padding: 16px 22px; font-weight: 700">Evidence is missing</div><div style="flex: 1 1 300px; padding: 16px 22px; color: #3A3832">Marked unverifiable, never invented or assumed false.</div></div>
+<div style="display: flex; flex-wrap: wrap; border-bottom: 2px solid #111111"><div style="flex: 1 1 300px; padding: 16px 22px; font-weight: 700">A rewrite fails the re-check</div><div style="flex: 1 1 300px; padding: 16px 22px; color: #3A3832">The patch is rejected and never shown as a fix.</div></div>
+<div style="display: flex; flex-wrap: wrap; border-bottom: 2px solid #111111"><div style="flex: 1 1 300px; padding: 16px 22px; font-weight: 700">An agent cannot finish</div><div style="flex: 1 1 300px; padding: 16px 22px; color: #3A3832">A partial result returns with an explicit failure status.</div></div>
+<div style="display: flex; flex-wrap: wrap"><div style="flex: 1 1 300px; padding: 16px 22px; font-weight: 700">A claim is high risk</div><div style="flex: 1 1 300px; padding: 16px 22px; color: #3A3832">Escalated to a qualified human reviewer.</div></div>
+</div>
+</section>
+
+
+<section id="report" style="background: #111111; color: #F4F1EA; padding: 96px 48px">
+<div style="max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: #3B66FF">Audit trail</div>
+<h2 style="margin: 0; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; font-size: clamp(32px, 5vw, 56px); line-height: 1.1; letter-spacing: -0.03em">Inspect the agents' work, not just a final score</h2>
+<p style="margin: 0 0 24px; max-width: 700px; font-size: 19px; color: #CFCAC0">Every review saves who did what, what evidence was used and what a human decided. Illustrative example below.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+<div style="flex: 1 1 480px; min-width: 0; border: 2px solid #F4F1EA; padding: 24px; display: flex; flex-direction: column; gap: 18px">
+<div style="display: flex; flex-wrap: wrap; gap: 12px">
+<div style="flex: 1 1 100px; background: #1E1E1E; padding: 14px"><div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 36px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1">04</div><div style="color: #CFCAC0; font-size: 14px">Agents involved</div></div>
+<div style="flex: 1 1 100px; background: #1E1E1E; padding: 14px"><div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 36px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1">03</div><div style="color: #CFCAC0; font-size: 14px">Findings</div></div>
+<div style="flex: 1 1 100px; background: #1E1E1E; padding: 14px"><div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 36px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; color: #FFD166">01</div><div style="color: #CFCAC0; font-size: 14px">Needs review</div></div>
+</div>
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.08em; color: #CFCAC0">AGENT EXECUTION TRACE</div>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; gap: 14px; align-items: flex-start"><span style="margin-top: 7px; width: 12px; height: 12px; background: #7BE0A4; flex: none"></span><div><div style="font-weight: 700">Orchestrator <span style="font-weight: 400; color: #CFCAC0">· completed</span></div><div style="color: #CFCAC0; font-size: 15px">Extracted 3 claims and planned the review.</div></div></div>
+<div style="display: flex; gap: 14px; align-items: flex-start"><span style="margin-top: 7px; width: 12px; height: 12px; background: #7BE0A4; flex: none"></span><div><div style="font-weight: 700">Claim Verification <span style="font-weight: 400; color: #CFCAC0">· completed</span></div><div style="color: #CFCAC0; font-size: 15px">Found a claim that contradicts an approved fact.</div></div></div>
+<div style="display: flex; gap: 14px; align-items: flex-start"><span style="margin-top: 7px; width: 12px; height: 12px; background: #7BE0A4; flex: none"></span><div><div style="font-weight: 700">Brand Compliance &amp; Voice <span style="font-weight: 400; color: #CFCAC0">· completed</span></div><div style="color: #CFCAC0; font-size: 15px">Checked approved terminology and brand rules.</div></div></div>
+<div style="display: flex; gap: 14px; align-items: flex-start"><span style="margin-top: 7px; width: 12px; height: 12px; background: #FFD166; flex: none"></span><div><div style="font-weight: 700">Risk Intelligence <span style="font-weight: 400; color: #CFCAC0">· escalated</span></div><div style="color: #CFCAC0; font-size: 15px">Flagged an absolute guarantee for human review.</div></div></div>
+<div style="display: flex; gap: 14px; align-items: flex-start"><span style="margin-top: 7px; width: 12px; height: 12px; background: #7BE0A4; flex: none"></span><div><div style="font-weight: 700">Critic &amp; Consensus <span style="font-weight: 400; color: #CFCAC0">· completed</span></div><div style="color: #CFCAC0; font-size: 15px">Reviewed the evidence and consolidated the findings.</div></div></div>
+</div>
+</div>
+<div style="flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="background: #F4F1EA; color: #111111; padding: 24px; display: flex; flex-direction: column; gap: 14px; box-shadow: 6px 6px 0 #3B66FF">
+<div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.08em; color: #3A3832">THREE SEPARATE SIGNALS</div>
+<div style="display: flex; justify-content: space-between; gap: 12px; border-bottom: 2px solid #111111; padding-bottom: 10px"><span>Severity</span><b>HIGH</b></div>
+<div style="display: flex; justify-content: space-between; gap: 12px; border-bottom: 2px solid #111111; padding-bottom: 10px"><span>Evidence strength</span><b>CANON-CITED</b></div>
+<div style="display: flex; justify-content: space-between; gap: 12px"><span>Model confidence</span><b>0.90</b></div>
+<div style="font-size: 15px; color: #3A3832">Impact, proof and certainty are never blended into one number. A confident model cannot raise the evidence level.</div>
+</div>
+<div style="border: 2px solid #F4F1EA; padding: 20px; color: #CFCAC0; font-size: 15px; display: flex; flex-direction: column; gap: 14px">
+  <div>Stored per review: the plan, every agent step, suppressed findings, verified patches, the critic's disagreements and each human decision.</div>
+  <div>
+    <button type="button" class="neo-btn continue-workspace-btn" style="background: #3B66FF; color: #FFFFFF; padding: 10px 18px; border: 2px solid #FFFFFF; box-shadow: 3px 3px 0 #FFFFFF; font-weight: 700; font-size: 14px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; cursor: pointer">
+      Continue in Workspace →
+    </button>
+  </div>
+</div>
+</div>
+</div>
+</div>
+</section>
+
+
+<section id="try" style="background: #111111; border-top: 2px solid #111111; border-bottom: 2px solid #111111; padding: 80px 48px">
+<div style="max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 28px">
+  <!-- Section Header with View Tabs -->
+  <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid #262626; padding-bottom: 24px">
+    <div>
+      <div id="console-subhead" style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: #3B66FF; font-weight: 700; margin-bottom: 8px">
+        LIVE VERITY ENGINE AUDIT
+      </div>
+      <h2 id="console-head" style="margin: 0; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; font-size: clamp(28px, 4.5vw, 48px); line-height: 1.1; letter-spacing: -0.03em; color: #F4F1EA">
+        Paste your copy. See what the agents found.
+      </h2>
+    </div>
+
+    <!-- Console Tab Controls -->
+    <div style="display: inline-flex; flex-wrap: wrap; gap: 8px; background: #18181B; padding: 6px; border: 1px solid #27272A">
+      <button type="button" class="console-tab-btn neo-btn" data-view="workspace" style="background: #3B66FF; color: #FFFFFF; border: 2px solid #111111; box-shadow: 2px 2px 0 #000000; padding: 10px 18px; font-size: 14px; font-weight: 700; cursor: pointer">
+        ⚡ Audit Workspace
+      </button>
+      <button type="button" class="console-tab-btn neo-btn" data-view="canon" style="background: transparent; color: #CFCAC0; border: 2px solid transparent; padding: 10px 18px; font-size: 14px; font-weight: 700; cursor: pointer">
+        📜 Brand Canon (9)
+      </button>
+      <button type="button" class="console-tab-btn neo-btn" data-view="history" style="background: transparent; color: #CFCAC0; border: 2px solid transparent; padding: 10px 18px; font-size: 14px; font-weight: 700; cursor: pointer">
+        📊 History (4)
+      </button>
+    </div>
+  </div>
+
+  <!-- VIEW 1: Interactive Audit Workspace -->
+  <div id="tab-view-workspace" style="background: #18181B; color: #F4F1EA; border: 2px solid #27272A; box-shadow: 8px 8px 0 #000000; padding: 32px; display: flex; flex-direction: column; gap: 20px">
+    <!-- Sample Chips -->
+    <div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.08em; color: #CFCAC0; margin-bottom: 10px">QUICK TEST PRESETS:</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px" id="sample-chips">
+        <button type="button" class="sample-chip" data-sample="Verity is the best AI tool on the market.">Absolute claim</button>
+        <button type="button" class="sample-chip" data-sample="Meet our new Verification Bot with magical AI capabilities.">Disallowed term ("Bot")</button>
+        <button type="button" class="sample-chip" data-sample="Our free trial lasts 30 days.">Outdated fact (14 vs 30 days)</button>
+        <button type="button" class="sample-chip" data-sample="ProofGate reviews text against your approved brand guidelines.">Clean compliant copy</button>
+      </div>
+    </div>
+
+    <!-- Textarea Input -->
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <textarea id="live-audit-input" rows="4" placeholder="Type or paste marketing copy here to audit against brand canon..." style="width: 100%; box-sizing: border-box; background: #FFFDF8; color: #111111; border: 2px solid #111111; padding: 16px; font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 16px; line-height: 1.5; resize: vertical; min-height: 110px"></textarea>
+      <div style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #8E897E">
+        <span>Runs against active Brand Canon policies &amp; approved facts</span>
+        <span id="char-counter">0 / 5,000</span>
+      </div>
+    </div>
+
+    <!-- Action Bar -->
+    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px">
+      <div style="display: flex; gap: 12px">
+        <button type="button" id="btn-run-audit" class="neo-btn" style="background: #3B66FF; color: #FFFFFF; border: 2px solid #111111; box-shadow: 4px 4px 0 #000000; padding: 14px 28px; font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; gap: 10px">
+          <span id="btn-spinner" style="display: none; width: 14px; height: 14px; border: 2px solid #FFFFFF; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite"></span>
+          <span id="btn-audit-text">Run Multi-Agent Audit</span>
+        </button>
+        <button type="button" id="btn-clear" class="neo-btn" style="background: transparent; color: #F4F1EA; border: 2px solid #F4F1EA; padding: 14px 20px; font-size: 15px">Clear</button>
+      </div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #CFCAC0" id="audit-status-line">
+        Engine ready · Connected to /api/review
+      </div>
+    </div>
+
+    <!-- Results Display -->
+    <div id="audit-results-box" style="display: none; border-top: 2px dashed #444; padding-top: 24px; margin-top: 8px">
+      <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 20px">
+        <div style="display: flex; align-items: center; gap: 18px">
+          <div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 48px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1" id="res-score-num">--</div>
+          <div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; letter-spacing: 0.08em; color: #8E897E">VERDICT</div>
+            <div style="font-weight: 700; font-size: 20px" id="res-verdict-text">COMPLETED</div>
+          </div>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px">
+          <span id="res-badge-route" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; padding: 6px 12px; border: 1px solid #7BE0A4; color: #7BE0A4; background: rgba(123, 224, 164, 0.1)">Resolved locally</span>
+          <span id="res-badge-engine" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; padding: 6px 12px; border: 1px solid #8E897E; color: #CFCAC0; background: #1E1E1E">Canon v2.0</span>
+        </div>
+      </div>
+
+      <!-- Evaluated stats bar -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 20px">
+        <div style="background: #1E1E1E; padding: 12px; border: 1px solid #333">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8E897E">RULES CHECKED</div>
+          <div style="font-size: 20px; font-weight: 700; margin-top: 2px" id="res-stat-rules">--</div>
+        </div>
+        <div style="background: #1E1E1E; padding: 12px; border: 1px solid #333">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8E897E">FACTS CHECKED</div>
+          <div style="font-size: 20px; font-weight: 700; margin-top: 2px" id="res-stat-facts">--</div>
+        </div>
+        <div style="background: #1E1E1E; padding: 12px; border: 1px solid #333">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8E897E">LLM CALLS</div>
+          <div style="font-size: 20px; font-weight: 700; margin-top: 2px" id="res-stat-calls">--</div>
+        </div>
+        <div style="background: #1E1E1E; padding: 12px; border: 1px solid #333">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8E897E">FINDINGS</div>
+          <div style="font-size: 20px; font-weight: 700; margin-top: 2px" id="res-stat-findings">--</div>
+        </div>
+      </div>
+
+      <!-- Findings List -->
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.08em; color: #CFCAC0; margin-bottom: 12px">DETECTED ISSUES &amp; EVIDENCE:</div>
+      <div id="res-findings-list" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px"></div>
+
+      <!-- Governance Determination Box -->
+      <div style="background: #111111; border: 1px solid #333; padding: 18px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px">
+          <div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #3B66FF; font-weight: 700; letter-spacing: 0.08em">
+              HUMAN GOVERNANCE AUTHORITY
+            </div>
+            <div style="font-size: 15px; font-weight: 700; color: #F4F1EA">
+              Seal your governance determination on this copy
+            </div>
+          </div>
+          <span id="audit-decision-badge" style="display: none; font-family: 'JetBrains Mono', monospace; font-size: 12px; padding: 4px 10px; font-weight: 700"></span>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap">
+          <button type="button" id="btn-audit-approve" class="neo-btn" style="background: #10B981; color: #FFFFFF; padding: 8px 16px; font-size: 14px; border: 1px solid #111">✓ Approve Copy</button>
+          <button type="button" id="btn-audit-revise" class="neo-btn" style="background: #FFD166; color: #111111; padding: 8px 16px; font-size: 14px; border: 1px solid #111">✎ Request Revision</button>
+          <button type="button" id="btn-audit-reject" class="neo-btn" style="background: #EF4444; color: #FFFFFF; padding: 8px 16px; font-size: 14px; border: 1px solid #111">✕ Reject Copy</button>
+          <button type="button" class="switch-to-history neo-btn" style="background: #1E1E1E; color: #CFCAC0; padding: 8px 16px; font-size: 14px; border: 1px solid #444">View in History Logs →</button>
+        </div>
+      </div>
+
+      <!-- In-Place CTA -->
+      <div style="background: #1E1E1E; border: 2px solid #3B66FF; padding: 18px 24px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px">
+        <div>
+          <div style="font-weight: 700; font-size: 17px">Explore Governance Rules &amp; Review History In-Place</div>
+          <div style="color: #CFCAC0; font-size: 14px">Inspect active Brand Canon policies, deterministic patterns, and the full cryptographic audit history.</div>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap">
+          <button type="button" class="switch-to-canon neo-btn" style="background: #1E1E1E; color: #F4F1EA; padding: 12px 18px; border: 1px solid #444; font-weight: 700">Brand Canon (9 Rules) →</button>
+          <button type="button" class="switch-to-history neo-btn" style="background: #3B66FF; color: #FFFFFF; padding: 12px 22px; border: 2px solid #111111; font-weight: 700">Decision History →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 2: Brand Canon View -->
+  <div id="tab-view-canon" style="display: none; background: #18181B; border: 2px solid #27272A; box-shadow: 8px 8px 0 #000000; padding: 32px; flex-direction: column; gap: 24px">
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px">
+      <div style="flex: 1 1 320px">
+        <input type="text" id="canon-filter-input" placeholder="Filter canonical rules or approved facts..." style="width: 100%; max-width: 450px; box-sizing: border-box; background: #111111; color: #F4F1EA; border: 1px solid #333; padding: 10px 14px; font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 14px">
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7BE0A4; background: rgba(123, 224, 164, 0.1); padding: 6px 12px; border: 1px solid #7BE0A4">
+          Canon v2.0 Active · 9 Rules · 4 Facts
+        </span>
+        <button type="button" class="switch-to-workspace neo-btn" style="background: #3B66FF; color: #FFFFFF; padding: 8px 16px; border: 2px solid #111111; font-size: 14px">
+          ← Return to Audit
+        </button>
+      </div>
+    </div>
+
+    <!-- Rules Table -->
+    <div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.08em; color: #CFCAC0; margin-bottom: 12px; display: flex; justify-content: space-between">
+        <span>CANONICAL ENFORCEMENT RULES (9)</span>
+        <span style="font-size: 11px; color: #8E897E">DETERMINISTIC REGEX &amp; AGENT GUARDRAILS</span>
+      </div>
+      <div style="overflow-x: auto; border: 1px solid #27272A">
+        <table style="width: 100%; border-collapse: collapse; font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 14px; text-align: left" id="table-rules">
+          <thead>
+            <tr style="background: #111111; border-bottom: 2px solid #27272A; color: #8E897E; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em">
+              <th style="padding: 12px 14px">CODE</th>
+              <th style="padding: 12px 14px">CATEGORY</th>
+              <th style="padding: 12px 14px">POLICY / PROHIBITION</th>
+              <th style="padding: 12px 14px">APPROVED / PREFERRED</th>
+              <th style="padding: 12px 14px">SEVERITY</th>
+              <th style="padding: 12px 14px">ENFORCER</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid #222; background: #18181B">
+              <td style="padding: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #3B66FF; white-space: nowrap">R-TERM-001</td>
+              <td style="padding: 14px; color: #CFCAC0; white-space: nowrap; font-size: 13px">Terminology</td>
+              <td style="padding: 14px; color: #F4F1EA; line-height: 1.4">Never call the product "Verification Bot". Use "ProofGate".</td>
+              <td style="padding: 14px; color: #7BE0A4; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.4">"ProofGate"</td>
+              <td style="padding: 14px; white-space: nowrap"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; border: 1px solid #EF4444; color: #EF4444; background: rgba(239, 68, 68, 0.1)">HIGH</span></td>
+              <td style="padding: 14px; color: #8E897E; font-size: 12px; white-space: nowrap">Deterministic Regex</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222; background: #18181B">
+              <td style="padding: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #3B66FF; white-space: nowrap">R-TERM-002</td>
+              <td style="padding: 14px; color: #CFCAC0; white-space: nowrap; font-size: 13px">Terminology</td>
+              <td style="padding: 14px; color: #F4F1EA; line-height: 1.4">Write ProofGate as one word with capital P and G (not "proof gate").</td>
+              <td style="padding: 14px; color: #7BE0A4; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.4">"ProofGate"</td>
+              <td style="padding: 14px; white-space: nowrap"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; border: 1px solid #FFD166; color: #FFD166; background: rgba(255, 209, 102, 0.1)">MEDIUM</span></td>
+              <td style="padding: 14px; color: #8E897E; font-size: 12px; white-space: nowrap">Deterministic Regex</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222; background: #18181B">
+              <td style="padding: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #3B66FF; white-space: nowrap">R-ABS-001</td>
+              <td style="padding: 14px; color: #CFCAC0; white-space: nowrap; font-size: 13px">Superlatives</td>
+              <td style="padding: 14px; color: #F4F1EA; line-height: 1.4">No unverified superlatives such as "the best".</td>
+              <td style="padding: 14px; color: #7BE0A4; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.4">"Cite verified metric"</td>
+              <td style="padding: 14px; white-space: nowrap"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; border: 1px solid #EF4444; color: #EF4444; background: rgba(239, 68, 68, 0.1)">HIGH</span></td>
+              <td style="padding: 14px; color: #8E897E; font-size: 12px; white-space: nowrap">Hybrid Agent</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222; background: #18181B">
+              <td style="padding: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #3B66FF; white-space: nowrap">R-ABS-002</td>
+              <td style="padding: 14px; color: #CFCAC0; white-space: nowrap; font-size: 13px">Rankings</td>
+              <td style="padding: 14px; color: #F4F1EA; line-height: 1.4">No unverified ranking claims such as "#1".</td>
+              <td style="padding: 14px; color: #7BE0A4; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.4">"Provide audited source"</td>
+              <td style="padding: 14px; white-space: nowrap"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; border: 1px solid #EF4444; color: #EF4444; background: rgba(239, 68, 68, 0.1)">HIGH</span></td>
+              <td style="padding: 14px; color: #8E897E; font-size: 12px; white-space: nowrap">Hybrid Agent</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222; background: #18181B">
+              <td style="padding: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #3B66FF; white-space: nowrap">R-ABS-003</td>
+              <td style="padding: 14px; color: #CFCAC0; white-space: nowrap; font-size: 13px">Superlatives</td>
+              <td style="padding: 14px; color: #F4F1EA; line-height: 1.4">No unverified superlatives such as "industry-leading".</td>
+              <td style="padding: 14px; color: #7BE0A4; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.4">"State exact capability"</td>
+              <td style="padding: 14px; white-space: nowrap"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; border: 1px solid #EF4444; color: #EF4444; background: rgba(239, 68, 68, 0.1)">HIGH</span></td>
+              <td style="padding: 14px; color: #8E897E; font-size: 12px; white-space: nowrap">Hybrid Agent</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222; background: #18181B">
+              <td style="padding: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #3B66FF; white-space: nowrap">R-ABS-004</td>
+              <td style="padding: 14px; color: #CFCAC0; white-space: nowrap; font-size: 13px">Legal &amp; Risk</td>
+              <td style="padding: 14px; color: #F4F1EA; line-height: 1.4">No guarantees in marketing copy ("guaranteed").</td>
+              <td style="padding: 14px; color: #7BE0A4; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.4">"Describe actual SLA"</td>
+              <td style="padding: 14px; white-space: nowrap"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; border: 1px solid #EF4444; color: #EF4444; background: rgba(239, 68, 68, 0.1)">HIGH</span></td>
+              <td style="padding: 14px; color: #8E897E; font-size: 12px; white-space: nowrap">Deterministic Regex</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222; background: #18181B">
+              <td style="padding: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #3B66FF; white-space: nowrap">R-ABS-005</td>
+              <td style="padding: 14px; color: #CFCAC0; white-space: nowrap; font-size: 13px">Accuracy</td>
+              <td style="padding: 14px; color: #F4F1EA; line-height: 1.4">No absolute accuracy claims such as "100% accurate".</td>
+              <td style="padding: 14px; color: #7BE0A4; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.4">"State deterministic coverage"</td>
+              <td style="padding: 14px; white-space: nowrap"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; border: 1px solid #EF4444; color: #EF4444; background: rgba(239, 68, 68, 0.1)">HIGH</span></td>
+              <td style="padding: 14px; color: #8E897E; font-size: 12px; white-space: nowrap">Deterministic Regex</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222; background: #18181B">
+              <td style="padding: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #3B66FF; white-space: nowrap">R-TONE-001</td>
+              <td style="padding: 14px; color: #CFCAC0; white-space: nowrap; font-size: 13px">Brand Voice</td>
+              <td style="padding: 14px; color: #F4F1EA; line-height: 1.4">Voice is confident, plain and professional. No hype or slang.</td>
+              <td style="padding: 14px; color: #7BE0A4; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.4">"Professional phrasing"</td>
+              <td style="padding: 14px; white-space: nowrap"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; border: 1px solid #7BE0A4; color: #7BE0A4; background: rgba(123, 224, 164, 0.1)">LOW</span></td>
+              <td style="padding: 14px; color: #8E897E; font-size: 12px; white-space: nowrap">Tone Agent</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222; background: #18181B">
+              <td style="padding: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #3B66FF; white-space: nowrap">R-MSG-001</td>
+              <td style="padding: 14px; color: #CFCAC0; white-space: nowrap; font-size: 13px">Scope</td>
+              <td style="padding: 14px; color: #F4F1EA; line-height: 1.4">Do not describe capabilities that are not in approved facts.</td>
+              <td style="padding: 14px; color: #7BE0A4; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.4">"Approved Canon facts only"</td>
+              <td style="padding: 14px; white-space: nowrap"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; border: 1px solid #EF4444; color: #EF4444; background: rgba(239, 68, 68, 0.1)">HIGH</span></td>
+              <td style="padding: 14px; color: #8E897E; font-size: 12px; white-space: nowrap">Claim Agent</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Facts Table -->
+    <div>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; letter-spacing: 0.08em; color: #CFCAC0; margin-bottom: 12px; display: flex; justify-content: space-between">
+        <span>CANONICAL APPROVED FACTS (4)</span>
+        <span style="font-size: 11px; color: #8E897E">GROUND TRUTH CITATIONS FOR VERIFICATION AGENTS</span>
+      </div>
+      <div style="overflow-x: auto; border: 1px solid #27272A">
+        <table style="width: 100%; border-collapse: collapse; font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 14px; text-align: left" id="table-facts">
+          <thead>
+            <tr style="background: #111111; border-bottom: 2px solid #27272A; color: #8E897E; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em">
+              <th style="padding: 12px 14px">FACT CODE</th>
+              <th style="padding: 12px 14px">CATEGORY</th>
+              <th style="padding: 12px 14px">CANONICAL STATEMENT (GROUND TRUTH)</th>
+              <th style="padding: 12px 14px">STATUS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="border-bottom: 1px solid #222; background: #18181B">
+              <td style="padding: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #3B66FF; white-space: nowrap">F-PRICE-001</td>
+              <td style="padding: 14px; color: #CFCAC0; white-space: nowrap; font-size: 13px">Pricing</td>
+              <td style="padding: 14px; color: #F4F1EA; line-height: 1.4">ProofGate Pro costs $29 per user per month.</td>
+              <td style="padding: 14px; white-space: nowrap"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7BE0A4; border: 1px solid #7BE0A4; padding: 3px 8px; background: rgba(123, 224, 164, 0.1)">ACTIVE</span></td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222; background: #18181B">
+              <td style="padding: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #3B66FF; white-space: nowrap">F-FEAT-001</td>
+              <td style="padding: 14px; color: #CFCAC0; white-space: nowrap; font-size: 13px">Capabilities</td>
+              <td style="padding: 14px; color: #F4F1EA; line-height: 1.4">ProofGate checks every claim against approved sources only.</td>
+              <td style="padding: 14px; white-space: nowrap"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7BE0A4; border: 1px solid #7BE0A4; padding: 3px 8px; background: rgba(123, 224, 164, 0.1)">ACTIVE</span></td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222; background: #18181B">
+              <td style="padding: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #3B66FF; white-space: nowrap">F-FEAT-002</td>
+              <td style="padding: 14px; color: #CFCAC0; white-space: nowrap; font-size: 13px">Capabilities</td>
+              <td style="padding: 14px; color: #F4F1EA; line-height: 1.4">Image review is not available yet. Only text review is supported.</td>
+              <td style="padding: 14px; white-space: nowrap"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #7BE0A4; border: 1px solid #7BE0A4; padding: 3px 8px; background: rgba(123, 224, 164, 0.1)">ACTIVE</span></td>
+            </tr>
+            <tr style="border-bottom: 1px solid #222; background: #18181B">
+              <td style="padding: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #3B66FF; white-space: nowrap">F-OLD-001</td>
+              <td style="padding: 14px; color: #CFCAC0; white-space: nowrap; font-size: 13px">Free Trial</td>
+              <td style="padding: 14px; color: #F4F1EA; line-height: 1.4">The free trial lasts 14 days (previous 30-day trial expired on 2026-06-30).</td>
+              <td style="padding: 14px; white-space: nowrap"><span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8E897E; border: 1px solid #555; padding: 3px 8px; background: #222">SUPERSEDED</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEW 3: Decision History View -->
+  <div id="tab-view-history" style="display: none; background: #18181B; border: 2px solid #27272A; box-shadow: 8px 8px 0 #000000; padding: 32px; flex-direction: column; gap: 24px">
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px">
+      <div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #3B66FF; font-weight: 700; letter-spacing: 0.08em">
+          HISTORICAL LOGS &amp; AUDIT TRAIL
+        </div>
+        <div style="font-size: 18px; font-weight: 700; color: #F4F1EA">
+          Cryptographically Sealed Run Records
+        </div>
+      </div>
+      <button type="button" class="switch-to-workspace neo-btn" style="background: #3B66FF; color: #FFFFFF; padding: 8px 16px; border: 2px solid #111111; font-size: 14px">
+        ← Return to Audit
+      </button>
+    </div>
+
+    <!-- Metric Cards -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px">
+      <div style="background: #111111; border: 1px solid #333; padding: 14px">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8E897E">TOTAL RUNS</div>
+        <div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 28px; font-weight: 700; color: #F4F1EA" id="hist-total-runs">4</div>
+      </div>
+      <div style="background: #111111; border: 1px solid #333; padding: 14px">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8E897E">DETERMINISTIC (0 LLM)</div>
+        <div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 28px; font-weight: 700; color: #7BE0A4" id="hist-det-runs">3</div>
+      </div>
+      <div style="background: #111111; border: 1px solid #333; padding: 14px">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8E897E">HYBRID / MULTI-AGENT</div>
+        <div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 28px; font-weight: 700; color: #3B66FF" id="hist-hybrid-runs">1</div>
+      </div>
+      <div style="background: #111111; border: 1px solid #333; padding: 14px">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #8E897E">HUMAN DECISIONS</div>
+        <div style="font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 28px; font-weight: 700; color: #FFD166" id="hist-decisions-count">4</div>
+      </div>
+    </div>
+
+    <!-- History Table -->
+    <div style="overflow-x: auto; border: 1px solid #27272A">
+      <table style="width: 100%; border-collapse: collapse; font-family: 'Space Grotesk', system-ui, sans-serif; font-size: 14px; text-align: left" id="table-history">
+        <thead>
+          <tr style="background: #111111; border-bottom: 2px solid #27272A; color: #8E897E; font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.06em">
+            <th style="padding: 12px 14px">RUN ID / TIME</th>
+            <th style="padding: 12px 14px">AUDITED COPY</th>
+            <th style="padding: 12px 14px">ROUTE</th>
+            <th style="padding: 12px 14px">FINDINGS</th>
+            <th style="padding: 12px 14px">STATUS</th>
+            <th style="padding: 12px 14px">GOVERNANCE</th>
+          </tr>
+        </thead>
+        <tbody id="table-history-tbody">
+          <tr style="border-bottom: 1px solid #222; background: #18181B">
+            <td style="padding: 14px; white-space: nowrap">
+              <div style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #3B66FF; font-size: 13px">run-98a12f0b</div>
+              <div style="color: #8E897E; font-size: 12px">10/11/2026, 8:15 PM</div>
+            </td>
+            <td style="padding: 14px; max-width: 260px; color: #F4F1EA; line-height: 1.4">
+              "Our free trial lasts 30 days. ProofGate is guaranteed to be 100% accurate."
+            </td>
+            <td style="padding: 14px; white-space: nowrap">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 2px 8px; background: rgba(59, 102, 255, 0.15); color: #3B66FF; border: 1px solid #3B66FF">2 calls · hybrid</span>
+            </td>
+            <td style="padding: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #F4F1EA">3 issues</td>
+            <td style="padding: 14px; white-space: nowrap">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid #EF4444">FLAGGED</span>
+            </td>
+            <td style="padding: 14px; white-space: nowrap">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; background: rgba(255, 209, 102, 0.15); color: #FFD166; border: 1px solid #FFD166">REVISED</span>
+            </td>
+          </tr>
+          <tr style="border-bottom: 1px solid #222; background: #18181B">
+            <td style="padding: 14px; white-space: nowrap">
+              <div style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #3B66FF; font-size: 13px">run-8f3b41e1</div>
+              <div style="color: #8E897E; font-size: 12px">10/11/2026, 7:42 PM</div>
+            </td>
+            <td style="padding: 14px; max-width: 260px; color: #F4F1EA; line-height: 1.4">
+              "Verity is the best AI tool on the market."
+            </td>
+            <td style="padding: 14px; white-space: nowrap">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 2px 8px; background: rgba(123, 224, 164, 0.1); color: #7BE0A4; border: 1px solid #7BE0A4">deterministic (0 LLM)</span>
+            </td>
+            <td style="padding: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #F4F1EA">1 issue</td>
+            <td style="padding: 14px; white-space: nowrap">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid #EF4444">FLAGGED</span>
+            </td>
+            <td style="padding: 14px; white-space: nowrap">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; background: rgba(239, 68, 68, 0.15); color: #EF4444; border: 1px solid #EF4444">REJECTED</span>
+            </td>
+          </tr>
+          <tr style="border-bottom: 1px solid #222; background: #18181B">
+            <td style="padding: 14px; white-space: nowrap">
+              <div style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #3B66FF; font-size: 13px">run-71c08d24</div>
+              <div style="color: #8E897E; font-size: 12px">10/11/2026, 6:18 PM</div>
+            </td>
+            <td style="padding: 14px; max-width: 260px; color: #F4F1EA; line-height: 1.4">
+              "ProofGate reviews text against your approved brand guidelines."
+            </td>
+            <td style="padding: 14px; white-space: nowrap">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 2px 8px; background: rgba(123, 224, 164, 0.1); color: #7BE0A4; border: 1px solid #7BE0A4">deterministic (0 LLM)</span>
+            </td>
+            <td style="padding: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #F4F1EA">0 issues</td>
+            <td style="padding: 14px; white-space: nowrap">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; background: rgba(123, 224, 164, 0.1); color: #7BE0A4; border: 1px solid #7BE0A4">PASSED</span>
+            </td>
+            <td style="padding: 14px; white-space: nowrap">
+              <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; background: rgba(16, 185, 129, 0.15); color: #10B981; border: 1px solid #10B981">APPROVED</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+</section>
+
+
+<footer style="padding: 36px 48px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 16px; font-size: 15px; color: #3A3832; border-top: 2px solid #111111; background: #FFFDF8">
+<div><b style="color: #111111; font-family: 'Space Grotesk', system-ui, sans-serif; font-weight: 700; letter-spacing: -0.01em">VERITY</b> · Agentic brand governance &amp; content verification engine</div>
+<div style="display: flex; gap: 20px; font-weight: 600">
+  <button type="button" class="nav-tab-btn" data-target="workspace" style="background: none; border: none; padding: 0; font: inherit; cursor: pointer; text-decoration: underline; color: #111111">Review Workspace</button>
+  <button type="button" class="nav-tab-btn" data-target="canon" style="background: none; border: none; padding: 0; font: inherit; cursor: pointer; text-decoration: underline; color: #111111">Brand Canon</button>
+  <button type="button" class="nav-tab-btn" data-target="history" style="background: none; border: none; padding: 0; font: inherit; cursor: pointer; text-decoration: underline; color: #111111">Decision History</button>
+  <a href="#top" style="text-decoration: underline; color: #111111">Back to Top ↑</a>
+</div>
+</footer>
+</div>
+
+<script>
+// --- Hero Card Interactive Governance Simulation ---
+const heroBtnApprove = document.getElementById('hero-btn-approve');
+const heroBtnReject = document.getElementById('hero-btn-reject');
+const heroBtnRevise = document.getElementById('hero-btn-revise');
+const heroFeedback = document.getElementById('hero-decision-feedback');
+
+function recordHeroDecision(action, color) {
+  if (!heroFeedback) return;
+  heroFeedback.style.display = 'block';
+  heroFeedback.style.borderColor = color;
+  heroFeedback.style.color = color;
+  heroFeedback.innerHTML = '✓ Human decision recorded: <b>' + action.toUpperCase() + '</b> · Finding sealed to cryptographic audit log.';
+}
+
+if (heroBtnApprove) heroBtnApprove.onclick = () => recordHeroDecision('Approved', '#7BE0A4');
+if (heroBtnReject) heroBtnReject.onclick = () => recordHeroDecision('Rejected', '#EF4444');
+if (heroBtnRevise) heroBtnRevise.onclick = () => recordHeroDecision('Revision Requested', '#FFD166');
+
+// --- Live Auditor Backend Integration ---
+const inputEl = document.getElementById('live-audit-input');
+const charCounter = document.getElementById('char-counter');
+const btnRun = document.getElementById('btn-run-audit');
+const btnAuditText = document.getElementById('btn-audit-text');
+const btnSpinner = document.getElementById('btn-spinner');
+const btnClear = document.getElementById('btn-clear');
+const statusLine = document.getElementById('audit-status-line');
+const resultsBox = document.getElementById('audit-results-box');
+
+const resScoreNum = document.getElementById('res-score-num');
+const resVerdictText = document.getElementById('res-verdict-text');
+const resBadgeRoute = document.getElementById('res-badge-route');
+const resBadgeEngine = document.getElementById('res-badge-engine');
+const resStatRules = document.getElementById('res-stat-rules');
+const resStatFacts = document.getElementById('res-stat-facts');
+const resStatCalls = document.getElementById('res-stat-calls');
+const resStatFindings = document.getElementById('res-stat-findings');
+const resFindingsList = document.getElementById('res-findings-list');
+
+const btnOpenWorkspace = document.getElementById('btn-open-workspace');
+const btnContinueReview = document.getElementById('btn-continue-review');
+
+// Sync character counter
+inputEl.addEventListener('input', () => {
+  const len = inputEl.value.length;
+  charCounter.textContent = len.toLocaleString() + ' / 5,000';
+  if (len > 5000) {
+    charCounter.style.color = '#EF4444';
+  } else {
+    charCounter.style.color = '#8E897E';
+  }
+});
+
+// --- In-Place View State Navigation (No Route Switching) ---
+const consoleSubhead = document.getElementById('console-subhead');
+const consoleHead = document.getElementById('console-head');
+const viewWorkspace = document.getElementById('tab-view-workspace');
+const viewCanon = document.getElementById('tab-view-canon');
+const viewHistory = document.getElementById('tab-view-history');
+const consoleTabBtns = document.querySelectorAll('.console-tab-btn');
+const navTabBtns = document.querySelectorAll('.nav-tab-btn');
+
+function switchView(viewName) {
+  if (viewWorkspace) viewWorkspace.style.display = viewName === 'workspace' ? 'flex' : 'none';
+  if (viewCanon) viewCanon.style.display = viewName === 'canon' ? 'flex' : 'none';
+  if (viewHistory) viewHistory.style.display = viewName === 'history' ? 'flex' : 'none';
+
+  if (consoleSubhead && consoleHead) {
+    if (viewName === 'workspace') {
+      consoleSubhead.textContent = 'LIVE VERITY ENGINE AUDIT';
+      consoleHead.textContent = 'Paste your copy. See what the agents found.';
+    } else if (viewName === 'canon') {
+      consoleSubhead.textContent = 'CANONICAL TRUTH REPOSITORY';
+      consoleHead.textContent = 'Active Brand Canon & Canonical Rules';
+    } else if (viewName === 'history') {
+      consoleSubhead.textContent = 'AUDIT & GOVERNANCE RECORD';
+      consoleHead.textContent = 'Review Run Logs & Governance Decisions';
+    }
+  }
+
+  // Update console tab buttons
+  consoleTabBtns.forEach(btn => {
+    const isTarget = btn.getAttribute('data-view') === viewName;
+    btn.style.background = isTarget ? '#3B66FF' : 'transparent';
+    btn.style.color = isTarget ? '#FFFFFF' : '#CFCAC0';
+    btn.style.borderColor = isTarget ? '#111111' : 'transparent';
+    btn.style.boxShadow = isTarget ? '2px 2px 0 #000000' : 'none';
+  });
+
+  // Update nav buttons
+  navTabBtns.forEach(btn => {
+    const isTarget = btn.getAttribute('data-target') === viewName;
+    if (btn.style.background !== 'none') {
+      btn.style.background = isTarget ? '#3B66FF' : '#FFFDF8';
+      btn.style.color = isTarget ? '#FFFFFF' : '#111111';
+    }
+  });
+
+  const trySection = document.getElementById('try');
+  if (trySection) trySection.scrollIntoView({ behavior: 'smooth' });
+}
+
+consoleTabBtns.forEach(btn => {
+  btn.addEventListener('click', () => switchView(btn.getAttribute('data-view')));
+});
+
+navTabBtns.forEach(btn => {
+  btn.addEventListener('click', () => switchView(btn.getAttribute('data-target')));
+});
+
+document.querySelectorAll('.switch-to-workspace, .continue-workspace-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchView('workspace'));
+});
+document.querySelectorAll('.switch-to-canon').forEach(btn => {
+  btn.addEventListener('click', () => switchView('canon'));
+});
+document.querySelectorAll('.switch-to-history').forEach(btn => {
+  btn.addEventListener('click', () => switchView('history'));
+});
+
+// Live filter search for Canon Rules & Facts
+const canonFilterInput = document.getElementById('canon-filter-input');
+if (canonFilterInput) {
+  canonFilterInput.addEventListener('input', (e) => {
+    const q = e.target.value.toLowerCase().trim();
+    const ruleRows = document.querySelectorAll('#table-rules tbody tr');
+    const factRows = document.querySelectorAll('#table-facts tbody tr');
+
+    ruleRows.forEach(row => {
+      const text = row.innerText.toLowerCase();
+      row.style.display = !q || text.includes(q) ? '' : 'none';
+    });
+
+    factRows.forEach(row => {
+      const text = row.innerText.toLowerCase();
+      row.style.display = !q || text.includes(q) ? '' : 'none';
+    });
+  });
+}
+
+// In-place governance decision recording on results
+const decisionBadge = document.getElementById('audit-decision-badge');
+const btnAuditApprove = document.getElementById('btn-audit-approve');
+const btnAuditRevise = document.getElementById('btn-audit-revise');
+const btnAuditReject = document.getElementById('btn-audit-reject');
+
+function recordAuditGovernance(decision, color, bg) {
+  if (!decisionBadge) return;
+  decisionBadge.style.display = 'inline-block';
+  decisionBadge.style.color = color;
+  decisionBadge.style.borderColor = color;
+  decisionBadge.style.background = bg;
+  decisionBadge.textContent = 'DECISION RECORDED: ' + decision;
+
+  // Update latest row in history table
+  const firstRow = document.querySelector('#table-history-tbody tr');
+  if (firstRow) {
+    const cells = firstRow.querySelectorAll('td');
+    if (cells.length >= 6) {
+      cells[5].innerHTML = '<span style="font-family: \'JetBrains Mono\', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; background: ' + bg + '; color: ' + color + '; border: 1px solid ' + color + '">' + decision + '</span>';
+    }
+  }
+
+  const histDecCount = document.getElementById('hist-decisions-count');
+  if (histDecCount) {
+    histDecCount.textContent = (parseInt(histDecCount.textContent || '4', 10) + 1).toString();
+  }
+}
+
+if (btnAuditApprove) btnAuditApprove.addEventListener('click', () => recordAuditGovernance('APPROVED', '#10B981', 'rgba(16, 185, 129, 0.15)'));
+if (btnAuditRevise) btnAuditRevise.addEventListener('click', () => recordAuditGovernance('REVISED', '#FFD166', 'rgba(255, 209, 102, 0.15)'));
+if (btnAuditReject) btnAuditReject.addEventListener('click', () => recordAuditGovernance('REJECTED', '#EF4444', 'rgba(239, 68, 68, 0.15)'));
+
+// Pass current text to review page
+function navigateToReviewWithText() {
+  const text = inputEl.value.trim();
+  if (text) {
+    sessionStorage.setItem('verity_initial_content', text);
+    window.location.href = '/review?text=' + encodeURIComponent(text);
+  } else {
+    window.location.href = '/review';
+  }
+}
+
+if (btnOpenWorkspace) {
+  btnOpenWorkspace.addEventListener('click', (e) => {
+    e.preventDefault();
+    navigateToReviewWithText();
+  });
+}
+if (btnContinueReview) {
+  btnContinueReview.addEventListener('click', (e) => {
+    e.preventDefault();
+    navigateToReviewWithText();
+  });
+}
+
+// Sample chips
+document.querySelectorAll('.sample-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    inputEl.value = chip.getAttribute('data-sample');
+    inputEl.dispatchEvent(new Event('input'));
+    executeAudit();
+  });
+});
+
+if (btnClear) {
+  btnClear.addEventListener('click', () => {
+    inputEl.value = '';
+    inputEl.dispatchEvent(new Event('input'));
+    resultsBox.style.display = 'none';
+    statusLine.textContent = 'Engine ready · Connected to /api/review';
+    statusLine.style.color = '#CFCAC0';
+  });
+}
+
+async function executeAudit() {
+  const text = inputEl.value.trim();
+  if (!text) {
+    inputEl.focus();
+    return;
+  }
+
+  // Set loading state
+  btnRun.disabled = true;
+  btnSpinner.style.display = 'inline-block';
+  btnAuditText.textContent = 'Auditing with Agents...';
+  statusLine.textContent = 'Dispatched to multi-agent review pipeline...';
+  statusLine.style.color = '#FFD166';
+
+  try {
+    const startTime = performance.now();
+    const res = await fetch('/api/review', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: text })
+    });
+
+    const elapsed = Math.round(performance.now() - startTime);
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || ('Server returned HTTP ' + res.status));
+    }
+
+    const data = await res.json();
+    renderAuditResults(data, elapsed);
+
+  } catch (err) {
+    console.error('Audit failed:', err);
+    statusLine.textContent = 'Audit error: ' + err.message;
+    statusLine.style.color = '#EF4444';
+  } finally {
+    btnRun.disabled = false;
+    btnSpinner.style.display = 'none';
+    btnAuditText.textContent = 'Run Multi-Agent Audit';
+  }
+}
+
+btnRun.addEventListener('click', executeAudit);
+
+function renderAuditResults(data, elapsedMs) {
+  resultsBox.style.display = 'block';
+  statusLine.textContent = 'Audit completed in ' + elapsedMs + 'ms · Verified against Canon';
+  statusLine.style.color = '#7BE0A4';
+
+  const score = typeof data.score === 'number' ? data.score : 0;
+  resScoreNum.textContent = score;
+
+  if (score >= 90) {
+    resScoreNum.style.color = '#7BE0A4';
+    resVerdictText.textContent = 'PASSED (CANON COMPLIANT)';
+    resVerdictText.style.color = '#7BE0A4';
+  } else if (score >= 60) {
+    resScoreNum.style.color = '#FFD166';
+    resVerdictText.textContent = 'FLAGGED (ISSUES DETECTED)';
+    resVerdictText.style.color = '#FFD166';
+  } else {
+    resScoreNum.style.color = '#EF4444';
+    resVerdictText.textContent = 'CRITICAL VIOLATIONS';
+    resVerdictText.style.color = '#EF4444';
+  }
+
+  // Routing info
+  const calls = data.llmCalls ?? data.llm_calls ?? 0;
+  if (calls === 0) {
+    resBadgeRoute.textContent = '⚡ 0 LLM calls · Resolved deterministically';
+    resBadgeRoute.style.borderColor = '#7BE0A4';
+    resBadgeRoute.style.color = '#7BE0A4';
+  } else {
+    resBadgeRoute.textContent = '🤖 ' + calls + ' LLM call' + (calls === 1 ? '' : 's') + ' · Multi-agent verification';
+    resBadgeRoute.style.borderColor = '#FFD166';
+    resBadgeRoute.style.color = '#FFD166';
+  }
+
+  resBadgeEngine.textContent = 'Canon v' + (data.canonVersion || '2.0');
+
+  // Stats
+  resStatRules.textContent = data.evaluated?.rules ?? '—';
+  resStatFacts.textContent = data.evaluated?.facts ?? '—';
+  resStatCalls.textContent = calls;
+  resStatFindings.textContent = data.findings ? data.findings.length : 0;
+
+  // Findings list
+  resFindingsList.innerHTML = '';
+  if (data.agentTrace && data.agentTrace.length > 0) {
+    const traceBox = document.createElement('div');
+    traceBox.style.cssText = 'background: #171717; border: 2px solid #333; padding: 16px; margin-bottom: 16px; font-family: "JetBrains Mono", monospace; font-size: 12px;';
+    let stepsHtml = '<div style="font-size: 11px; color: #3B66FF; font-weight: 700; text-transform: uppercase; margin-bottom: 8px">VERITY 2.0 · MULTI-AGENT EXECUTION TRACE</div>';
+    data.agentTrace.forEach(st => {
+      stepsHtml += '<div style="display: flex; gap: 8px; margin-bottom: 6px; align-items: flex-start"><span style="width: 8px; height: 8px; border-radius: 50%; background: ' + (st.ok ? '#7BE0A4' : '#FFD166') + '; margin-top: 4px; flex-shrink: 0"></span><div><b style="color: #F4F1EA; text-transform: capitalize">' + st.agent.replace(/[-_]/g, ' ') + '</b> <span style="color: #888">(' + (st.calls > 0 ? st.calls + ' call · ' : 'code · ') + st.ms + 'ms)</span><div style="color: #CCC; font-family: \'Space Grotesk\', sans-serif; font-size: 13px">' + st.detail + '</div></div></div>';
+    });
+    traceBox.innerHTML = stepsHtml;
+    resFindingsList.appendChild(traceBox);
+  }
+  if (!data.findings || data.findings.length === 0) {
+    resFindingsList.innerHTML = '<div style="background: rgba(123, 224, 164, 0.1); border: 1px solid #7BE0A4; padding: 16px; color: #7BE0A4; font-weight: 600">✓ No policy or factual violations detected. Copy is 100% compliant with approved Brand Canon.</div>';
+  } else {
+    data.findings.forEach((f, idx) => {
+      const card = document.createElement('div');
+      const sev = (f.severity || 'medium').toLowerCase();
+      card.className = 'finding-card ' + sev;
+
+      const title = f.span_text ? ('"' + f.span_text + '"') : (f.rule_id || 'Violation #' + (idx + 1));
+      const verdictBadge = f.verdict ? ('<span style="background: #111; color: #FFD166; padding: 2px 8px; border: 1px solid #FFD166; font-size: 11px">' + f.verdict + '</span>') : '';
+      const sevBadge = '<span style="background: #111; color: #CFCAC0; padding: 2px 8px; border: 1px solid #555; font-size: 11px">SEV: ' + (f.severity || 'HIGH').toUpperCase() + '</span>';
+      const gradeBadge = f.grade ? ('<span style="background: #111; color: #7BE0A4; padding: 2px 8px; border: 1px solid #7BE0A4; font-size: 11px">GRADE ' + f.grade + '</span>') : '';
+
+      card.innerHTML = `
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px">
+          <div style="font-weight: 700; font-size: 16px; color: #F4F1EA">${title}</div>
+          <div style="display: flex; gap: 6px; font-family: 'JetBrains Mono', monospace">${gradeBadge}${verdictBadge}${sevBadge}</div>
+        </div>
+        <div style="color: #CFCAC0; font-size: 14px; line-height: 1.5">${f.explanation || 'No explanation provided.'}</div>
+        ${f.suggested_fix ? '<div style="background: #111; padding: 10px 14px; border-left: 3px solid #7BE0A4; font-size: 14px; margin-top: 4px"><span style="color: #7BE0A4; font-weight: 600">Suggested revision:</span> ' + f.suggested_fix + '</div>' : ''}
+      `;
+      resFindingsList.appendChild(card);
+    });
+  }
+
+  // Prepend to history table
+  const histTbody = document.getElementById('table-history-tbody');
+  if (histTbody) {
+    const runId = 'run-' + Math.random().toString(36).slice(2, 10);
+    const nowStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const isPassed = !data.findings || data.findings.length === 0;
+    const newTr = document.createElement('tr');
+    newTr.style.cssText = 'border-bottom: 1px solid #222; background: #18181B;';
+    newTr.innerHTML = `
+      <td style="padding: 14px; white-space: nowrap">
+        <div style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #3B66FF; font-size: 13px">${runId}</div>
+        <div style="color: #8E897E; font-size: 12px">Today, ${nowStr}</div>
+      </td>
+      <td style="padding: 14px; max-width: 260px; color: #F4F1EA; line-height: 1.4">
+        "${inputEl.value.trim().slice(0, 80)}${inputEl.value.trim().length > 80 ? '...' : ''}"
+      </td>
+      <td style="padding: 14px; white-space: nowrap">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 2px 8px; background: ${calls === 0 ? 'rgba(123, 224, 164, 0.1)' : 'rgba(59, 102, 255, 0.15)'}; color: ${calls === 0 ? '#7BE0A4' : '#3B66FF'}; border: 1px solid ${calls === 0 ? '#7BE0A4' : '#3B66FF'}">
+          ${calls === 0 ? 'deterministic (0 LLM)' : calls + ' calls · hybrid'}
+        </span>
+      </td>
+      <td style="padding: 14px; font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #F4F1EA">
+        ${data.findings ? data.findings.length : 0} issue${data.findings && data.findings.length === 1 ? '' : 's'}
+      </td>
+      <td style="padding: 14px; white-space: nowrap">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; background: ${isPassed ? 'rgba(123, 224, 164, 0.1)' : 'rgba(239, 68, 68, 0.15)'}; color: ${isPassed ? '#7BE0A4' : '#EF4444'}; border: 1px solid ${isPassed ? '#7BE0A4' : '#EF4444'}">
+          ${isPassed ? 'PASSED' : 'FLAGGED'}
+        </span>
+      </td>
+      <td style="padding: 14px; white-space: nowrap">
+        <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; background: #222; color: #8E897E; border: 1px solid #444">
+          PENDING
+        </span>
+      </td>
+    `;
+    histTbody.insertBefore(newTr, histTbody.firstChild);
+
+    const histTotal = document.getElementById('hist-total-runs');
+    if (histTotal) histTotal.textContent = (parseInt(histTotal.textContent || '4', 10) + 1).toString();
+    if (calls === 0) {
+      const histDet = document.getElementById('hist-det-runs');
+      if (histDet) histDet.textContent = (parseInt(histDet.textContent || '3', 10) + 1).toString();
+    } else {
+      const histHyb = document.getElementById('hist-hybrid-runs');
+      if (histHyb) histHyb.textContent = (parseInt(histHyb.textContent || '1', 10) + 1).toString();
+    }
+  }
+
+  // Smoothly scroll results into view if needed
+  resultsBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+</script>
+</body>
+</html>

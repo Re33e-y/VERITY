@@ -1,0 +1,18 @@
+{
+  "summary": {
+    "tag": "plain-llm",
+    "model": "gemini-2.5-flash",
+    "at": "2026-11-07T07:11:48.047Z",
+    "samples": 0,
+    "errors": 0,
+    "recall": "n/a",
+    "precision": "n/a",
+    "falsePositiveRateOnCleanSamples": "n/a",
+    "citationValidity": "n/a",
+    "promptInjectionLeaks": 0,
+    "hallucinatedCitations": 0,
+    "findingsReturned": 0,
+    "note": "No evidence gate: citations are not verified, so hallucinated codes would reach the user."
+  },
+  "rows": []
+}

@@ -2,8 +2,8 @@ import Link from "next/link"
 
 export type NavPage = "review" | "canon" | "history"
 
-const LINKS: { page: NavPage; href: string; label: string }[] = [
-  { page: "review", href: "/", label: "Review" },
+const LINKS: { page?: NavPage; href: string; label: string }[] = [
+  { page: "review", href: "/review", label: "Review" },
   { page: "canon", href: "/canon", label: "Brand Canon" },
   { page: "history", href: "/history", label: "History" },
 ]
@@ -18,21 +18,21 @@ export default function SiteNav({ active }: { active: NavPage }) {
         <Link
           href="/"
           aria-label="Verity home"
-          className="order-1 flex items-center gap-2 rounded-full font-semibold text-foreground no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="order-1 flex items-center gap-2 rounded-full font-bold text-foreground no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <span
             aria-hidden="true"
-            className="size-5 rounded-md bg-primary shadow-[0_0_16px_rgba(255,107,91,0.5)]"
+            className="size-5 rounded-md bg-[#3B66FF] shadow-[0_0_12px_rgba(59,102,255,0.5)]"
           />
-          <span>Verity</span>
+          <span className="tracking-tight text-base font-bold">Verity</span>
         </Link>
 
         <ul className="order-3 flex w-full min-w-0 flex-wrap items-center justify-between gap-1 p-0 sm:order-2 sm:w-auto sm:justify-start">
           {LINKS.map((link) => (
-            <li key={link.page} className="list-none">
+            <li key={link.href} className="list-none">
               <Link
                 href={link.href}
-                aria-current={active === link.page ? "page" : undefined}
+                aria-current={link.page === active ? "page" : undefined}
                 className={`inline-flex min-h-9 items-center rounded-full px-3 text-sm no-underline transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                   active === link.page
                     ? "bg-primary/15 text-foreground ring-1 ring-primary/40"
