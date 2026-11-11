@@ -13,8 +13,28 @@ interface Finding {
   verdict?: string
   severity?: string
   grade?: string
+  source?: string
+  requires_human_review?: boolean
   explanation?: string
   suggested_fix?: string
+  ai_notes?: string[]
+  enrichments?: Array<{
+    agent: string
+    category: string
+    verdict?: string | null
+    confidence?: number
+    citations?: Array<{ type: "rule" | "fact"; id: string }>
+    reasoning: string
+    legal_interpretation?: string
+    requires_human_review?: boolean
+    suggested_fix?: string | null
+  }>
+  lifecycle?: {
+    specialist?: { agent: string; verdict?: string | null; confidence?: number; reasoning?: string }
+    first_guard?: { action: string; detail: string }
+    critic?: { verdict: string; reason: string }
+    second_guard?: { action: string; detail: string }
+  }
 }
 
 interface AgentTraceStep {
@@ -32,6 +52,7 @@ interface GovernanceReport {
     findings: number
     needs_human_review: number
     suppressed: number
+    unverifiable?: number
   }
   agents?: Array<{
     agent: string
@@ -47,6 +68,21 @@ interface GovernanceReport {
     stance: string
     reason: string
     resolution: string
+  }>
+  consensus?: {
+    status: string
+    agreed_count: number
+    disagreed_count: number
+    summary: string
+  }
+  suppressed_details?: Array<{
+    id: string
+    quote: string
+    category: string
+    source: string
+    critic_verdict: string
+    critic_explanation: string
+    second_guard_explanation: string
   }>
 }
 
@@ -235,7 +271,7 @@ const INITIAL_HISTORY: HistoryItem[] = [
     status: "PASSED",
     decision: "APPROVED",
     decidedBy: "Content Lead",
-    reason: "Full compliance with Brand Canon v2.0."
+    reason: "Full compliance with Brand Canon."
   },
   {
     id: "run-55b29c9a",
@@ -265,6 +301,7 @@ export default function LandingPage() {
   const [result, setResult] = useState<ReviewResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [heroDecision, setHeroDecision] = useState<"approved" | "rejected" | "revised" | null>(null)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   // In-place view state
   const [activeView, setActiveView] = useState<ActiveView>("workspace")
@@ -419,18 +456,53 @@ export default function LandingPage() {
           color: #FFFFFF;
           border-color: #111111;
         }
+        @media (max-width: 860px) {
+          .desktop-nav { display: none !important; }
+          .mobile-menu-toggle { display: inline-flex !important; }
+        }
+        @media (min-width: 861px) {
+          .desktop-nav { display: flex !important; }
+          .mobile-menu-toggle { display: none !important; }
+          .mobile-menu-drawer { display: none !important; }
+        }
+        @media (max-width: 640px) {
+          .desktop-table { display: none !important; }
+          .mobile-card-list { display: flex !important; }
+        }
+        @media (min-width: 641px) {
+          .desktop-table { display: block !important; }
+          .mobile-card-list { display: none !important; }
+        }
       `}</style>
       
 
 <div id="top" style={{"background":"#F4F1EA","color":"#111111","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"17px","lineHeight":"1.5","width":"100%","overflowX":"hidden"}} data-canvas-width="1360" data-canvas-height="4700" data-document-role="page" data-label="Landing page">
 
 
-<header style={{"display":"flex","flexWrap":"wrap","alignItems":"center","justifyContent":"space-between","gap":"16px","padding":"18px 48px","borderBottom":"2px solid #111111"}}>
+<header style={{"display":"flex","flexWrap":"wrap","alignItems":"center","justifyContent":"space-between","gap":"16px","padding":"16px clamp(16px, 4vw, 48px)","borderBottom":"2px solid #111111","position":"relative"}}>
 <Link href="/" style={{"display":"flex","alignItems":"center","gap":"10px","textDecoration":"none","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","fontSize":"28px","letterSpacing":"-0.02em","color":"#111111"}}>
 <svg viewBox="0 0 14 14" width="30" height="30" shapeRendering="crispEdges" aria-hidden="true"><g fill="#111111"><rect x="4" y="0" width="6" height="1"></rect><rect x="2" y="1" width="10" height="1"></rect><rect x="1" y="2" width="12" height="10"></rect><rect x="1" y="12" width="3" height="1"></rect><rect x="5" y="12" width="4" height="1"></rect><rect x="10" y="12" width="3" height="1"></rect></g><rect x="3" y="4" width="3" height="3" fill="#00D2FF"></rect><rect x="8" y="4" width="3" height="3" fill="#00D2FF"></rect></svg>
 VERITY
 </Link>
-<nav style={{"display":"flex","flexWrap":"wrap","gap":"14px","fontWeight":"600","fontSize":"15px","alignItems":"center"}}>
+
+<button
+  type="button"
+  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+  className="neo-btn mobile-menu-toggle"
+  aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+  style={{
+    "display":"none",
+    "background":"#111111",
+    "color":"#FFFFFF",
+    "padding":"8px 14px",
+    "fontSize":"14px",
+    "minHeight":"40px"
+  }}
+>
+  <span style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"13px"}}>{mobileMenuOpen ? "✕ Close" : "☰ Menu"}</span>
+</button>
+
+<nav className="desktop-nav" style={{"display":"flex","flexWrap":"wrap","gap":"14px","fontWeight":"600","fontSize":"15px","alignItems":"center"}}>
 <button type="button" onClick={() => { setActiveView("workspace"); scrollToAudit(); }} style={{"background": activeView === "workspace" ? "#3B66FF" : "transparent","color": activeView === "workspace" ? "#FFFFFF" : "#111111","border":"1px solid #111111","padding":"6px 14px","cursor":"pointer","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","boxShadow": activeView === "workspace" ? "2px 2px 0 #111111" : "none"}}>Review Workspace</button>
 <a href="#architecture" style={{"textDecoration":"none","color":"#111111","padding":"6px 4px"}}>Architecture</a>
 <a href="#split" style={{"textDecoration":"none","color":"#111111","padding":"6px 4px"}}>Division</a>
@@ -439,6 +511,41 @@ VERITY
 <button type="button" onClick={() => { setActiveView("canon"); scrollToAudit(); }} style={{"textDecoration":"none","padding":"6px 14px","border":"1px solid #111","background": activeView === "canon" ? "#3B66FF" : "#FFFDF8","color": activeView === "canon" ? "#FFFFFF" : "#111111","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","cursor":"pointer","boxShadow": activeView === "canon" ? "2px 2px 0 #111111" : "none"}}>Brand Canon</button>
 <button type="button" onClick={() => { setActiveView("history"); scrollToAudit(); }} style={{"textDecoration":"none","padding":"6px 14px","border":"1px solid #111","background": activeView === "history" ? "#3B66FF" : "#FFFDF8","color": activeView === "history" ? "#FFFFFF" : "#111111","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","cursor":"pointer","boxShadow": activeView === "history" ? "2px 2px 0 #111111" : "none"}}>Decision History</button>
 </nav>
+
+{mobileMenuOpen && (
+  <div className="mobile-menu-drawer" style={{"width":"100%","display":"flex","flexDirection":"column","gap":"10px","paddingTop":"14px","borderTop":"2px solid #111111"}}>
+    <button
+      type="button"
+      onClick={() => { setActiveView("workspace"); scrollToAudit(); setMobileMenuOpen(false); }}
+      className="neo-btn"
+      style={{"background": activeView === "workspace" ? "#3B66FF" : "#FFFDF8","color": activeView === "workspace" ? "#FFFFFF" : "#111111","padding":"12px 16px","justifyContent":"flex-start","minHeight":"44px","fontSize":"15px"}}
+    >
+      ⚡ Review Workspace
+    </button>
+    <button
+      type="button"
+      onClick={() => { setActiveView("canon"); scrollToAudit(); setMobileMenuOpen(false); }}
+      className="neo-btn"
+      style={{"background": activeView === "canon" ? "#3B66FF" : "#FFFDF8","color": activeView === "canon" ? "#FFFFFF" : "#111111","padding":"12px 16px","justifyContent":"flex-start","minHeight":"44px","fontSize":"15px"}}
+    >
+      📜 Brand Canon ({CANON_RULES.length})
+    </button>
+    <button
+      type="button"
+      onClick={() => { setActiveView("history"); scrollToAudit(); setMobileMenuOpen(false); }}
+      className="neo-btn"
+      style={{"background": activeView === "history" ? "#3B66FF" : "#FFFDF8","color": activeView === "history" ? "#FFFFFF" : "#111111","padding":"12px 16px","justifyContent":"flex-start","minHeight":"44px","fontSize":"15px"}}
+    >
+      📊 Decision History ({historyItems.length})
+    </button>
+    <div style={{"display":"flex","flexWrap":"wrap","gap":"14px","paddingTop":"6px","fontFamily":"'JetBrains Mono', monospace","fontSize":"13px"}}>
+      <a href="#architecture" onClick={() => setMobileMenuOpen(false)} style={{"color":"#111111","textDecoration":"underline"}}>Architecture</a>
+      <a href="#split" onClick={() => setMobileMenuOpen(false)} style={{"color":"#111111","textDecoration":"underline"}}>Division</a>
+      <a href="#lifecycle" onClick={() => setMobileMenuOpen(false)} style={{"color":"#111111","textDecoration":"underline"}}>Lifecycle</a>
+      <a href="#report" onClick={() => setMobileMenuOpen(false)} style={{"color":"#111111","textDecoration":"underline"}}>Audit trail</a>
+    </div>
+  </div>
+)}
 </header>
 
 
@@ -970,7 +1077,7 @@ VERITY
                     "background":"#1E1E1E"
                   }}
                 >
-                  Canon v{result.canonVersion ?? '2.0'}
+                  Canon v{result.canonVersion ?? '1.0'}
                 </span>
               </div>
             </div>
@@ -995,13 +1102,13 @@ VERITY
               </div>
             </div>
 
-            {/* VERITY 2.0 Agent Lifecycle Trace */}
+            {/* VERITY Agent Lifecycle Trace */}
             {(result.governance || (result.agentTrace && result.agentTrace.length > 0)) && (
               <div style={{"background":"#171717","border":"2px solid #333","padding":"18px","marginBottom":"20px","display":"flex","flexDirection":"column","gap":"12px"}}>
                 <div style={{"display":"flex","flexWrap":"wrap","justifyContent":"space-between","alignItems":"center","borderBottom":"1px solid #333","paddingBottom":"10px"}}>
                   <div>
                     <span style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","color":"#3B66FF","fontWeight":"700","textTransform":"uppercase","letterSpacing":"0.08em"}}>
-                      VERITY 2.0 · AGENT-FIRST GOVERNANCE
+                      VERITY · AGENT-FIRST GOVERNANCE
                     </span>
                     <div style={{"fontWeight":"700","fontSize":"16px","color":"#F4F1EA"}}>
                       Multi-Agent Execution &amp; Trace
@@ -1050,6 +1157,33 @@ VERITY
                     ))
                   )}
                 </div>
+
+                {/* VERITY Critic Suppressions & Second Guard Verifications */}
+                {result.governance?.suppressed_details && result.governance.suppressed_details.length > 0 && (
+                  <div style={{"background":"#111","border":"1px solid #333","padding":"12px 14px","marginTop":"4px"}}>
+                    <div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","color":"#FFD166","fontWeight":"700","marginBottom":"8px","letterSpacing":"0.05em"}}>
+                      CRITIC SUPPRESSIONS &amp; SECOND GUARD VERIFICATION ({result.governance.suppressed_details.length})
+                    </div>
+                    <div style={{"display":"flex","flexDirection":"column","gap":"8px"}}>
+                      {result.governance.suppressed_details.map((sup, sidx) => (
+                        <div key={sup.id || sidx} style={{"background":"#171717","border":"1px solid #222","padding":"10px","fontSize":"12px"}}>
+                          <div style={{"display":"flex","justifyContent":"space-between","alignItems":"center","flexWrap":"wrap","gap":"6px","marginBottom":"4px"}}>
+                            <span style={{"color":"#F4F1EA","fontWeight":"600"}}>Candidate: &ldquo;{sup.quote}&rdquo;</span>
+                            <span style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"10px","color":"#8E897E","background":"#0d0d0d","padding":"2px 6px"}}>
+                              {sup.source} · {sup.category}
+                            </span>
+                          </div>
+                          <div style={{"color":"#FFD166","marginTop":"2px"}}>
+                            <b>Critic Verdict ({sup.critic_verdict}):</b> {sup.critic_explanation}
+                          </div>
+                          <div style={{"color":"#7BE0A4","marginTop":"2px"}}>
+                            <b>Second Guard:</b> {sup.second_guard_explanation}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1080,7 +1214,21 @@ VERITY
                       <div style={{"fontWeight":"700","fontSize":"16px","color":"#F4F1EA"}}>
                         {f.span_text ? `"${f.span_text}"` : f.rule_id || `Finding #${i + 1}`}
                       </div>
-                      <div style={{"display":"flex","gap":"6px","fontFamily":"'JetBrains Mono', monospace","fontSize":"11px"}}>
+                      <div style={{"display":"flex","flexWrap":"wrap","gap":"6px","fontFamily":"'JetBrains Mono', monospace","fontSize":"11px"}}>
+                        {f.source?.startsWith("agent:") ? (
+                          <span style={{"background":"rgba(59, 102, 255, 0.2)","color":"#809BFF","padding":"2px 8px","border":"1px solid #3B66FF"}}>
+                            ⚡ MODEL-VERIFIED (AI)
+                          </span>
+                        ) : (
+                          <span style={{"background":"rgba(255, 209, 102, 0.15)","color":"#FFD166","padding":"2px 8px","border":"1px solid #FFD166"}}>
+                            🔒 RULE-BASED (OFFLINE)
+                          </span>
+                        )}
+                        {f.requires_human_review && (
+                          <span style={{"background":"rgba(239, 68, 68, 0.2)","color":"#F87171","padding":"2px 8px","border":"1px solid #EF4444"}}>
+                            ⚖ HUMAN REVIEW REQUIRED
+                          </span>
+                        )}
                         {f.grade && <span style={{"background":"#111","color":"#7BE0A4","padding":"2px 8px","border":"1px solid #7BE0A4"}}>GRADE {f.grade}</span>}
                         {f.verdict && <span style={{"background":"#111","color":"#FFD166","padding":"2px 8px","border":"1px solid #FFD166"}}>{f.verdict}</span>}
                         <span style={{"background":"#111","color":"#CFCAC0","padding":"2px 8px","border":"1px solid #555"}}>SEV: {(f.severity || 'HIGH').toUpperCase()}</span>
@@ -1092,6 +1240,95 @@ VERITY
                     {f.suggested_fix && (
                       <div style={{"background":"#111","padding":"10px 14px","borderLeft":"3px solid #7BE0A4","fontSize":"14px","marginTop":"4px"}}>
                         <span style={{"color":"#7BE0A4","fontWeight":"600"}}>Suggested revision:</span> {f.suggested_fix}
+                      </div>
+                    )}
+
+                    {/* Specialist Intelligence Enrichment */}
+                    {f.enrichments && f.enrichments.length > 0 && (
+                      <div style={{"background":"#161b22","border":"1px solid #3B66FF55","padding":"12px","marginTop":"6px","display":"flex","flexDirection":"column","gap":"8px"}}>
+                        <div style={{"display":"flex","justifyContent":"space-between","alignItems":"center","flexWrap":"wrap","gap":"6px"}}>
+                          <span style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","color":"#3B66FF","fontWeight":"700","textTransform":"uppercase","letterSpacing":"0.05em"}}>
+                            ✦ Specialist Intelligence Enrichment ({f.enrichments.length})
+                          </span>
+                          {f.enrichments.some(e => e.requires_human_review) && (
+                            <span style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"10px","background":"rgba(239, 68, 68, 0.2)","color":"#EF4444","padding":"2px 6px","border":"1px solid #EF4444"}}>
+                              Requires Legal / Human Sign-off
+                            </span>
+                          )}
+                        </div>
+                        {f.enrichments.map((enr, eidx) => (
+                          <div key={eidx} style={{"background":"#0d1117","padding":"10px","borderLeft":"3px solid #3B66FF","fontSize":"13px"}}>
+                            <div style={{"display":"flex","flexWrap":"wrap","justifyContent":"space-between","alignItems":"center","gap":"6px","marginBottom":"4px"}}>
+                              <span style={{"fontFamily":"'JetBrains Mono', monospace","fontWeight":"700","color":"#F4F1EA"}}>
+                                {enr.agent} · {enr.category}
+                              </span>
+                              <div style={{"display":"flex","gap":"6px","fontFamily":"'JetBrains Mono', monospace","fontSize":"10px"}}>
+                                {enr.confidence !== undefined && (
+                                  <span style={{"background":"#21262d","color":"#7BE0A4","padding":"1px 6px"}}>
+                                    {Math.round(enr.confidence * 100)}% confidence
+                                  </span>
+                                )}
+                                {enr.citations && enr.citations.length > 0 && (
+                                  <span style={{"background":"#21262d","color":"#CFCAC0","padding":"1px 6px"}}>
+                                    {enr.citations.map(c => c.id).join(", ")}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div style={{"color":"#CFCAC0","fontSize":"13px","lineHeight":"1.4"}}>
+                              {enr.reasoning}
+                            </div>
+                            {enr.legal_interpretation && (
+                              <div style={{"marginTop":"6px","background":"rgba(239, 68, 68, 0.1)","border":"1px solid rgba(239, 68, 68, 0.3)","padding":"6px 10px","color":"#FCA5A5","fontSize":"12px"}}>
+                                <b>Legal Interpretation:</b> {enr.legal_interpretation}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Consensus Lifecycle Trace */}
+                    {f.lifecycle && (
+                      <div style={{"background":"#111","border":"1px solid #2a2a2a","padding":"10px 12px","marginTop":"6px","fontFamily":"'JetBrains Mono', monospace","fontSize":"11px"}}>
+                        <div style={{"color":"#8E897E","marginBottom":"6px","textTransform":"uppercase","letterSpacing":"0.05em","fontSize":"10px"}}>
+                          Lifecycle: Specialist → First Guard → Critic → Second Guard → Final
+                        </div>
+                        <div style={{"display":"grid","gridTemplateColumns":"repeat(auto-fit, minmax(200px, 1fr))","gap":"6px"}}>
+                          {f.lifecycle.specialist && (
+                            <div style={{"background":"#171717","padding":"6px 8px","borderLeft":"2px solid #3B66FF"}}>
+                              <span style={{"color":"#3B66FF","fontWeight":"700"}}>1. Specialist</span>
+                              <div style={{"color":"#CFCAC0","fontSize":"11px","marginTop":"2px"}}>
+                                {f.lifecycle.specialist.agent} ({f.lifecycle.specialist.verdict || 'flagged'})
+                                {f.lifecycle.specialist.confidence !== undefined && ` · ${Math.round(f.lifecycle.specialist.confidence * 100)}%`}
+                              </div>
+                            </div>
+                          )}
+                          {f.lifecycle.first_guard && (
+                            <div style={{"background":"#171717","padding":"6px 8px","borderLeft":"2px solid #7BE0A4"}}>
+                              <span style={{"color":"#7BE0A4","fontWeight":"700"}}>2. First Guard</span>
+                              <div style={{"color":"#CFCAC0","fontSize":"11px","marginTop":"2px"}}>
+                                {f.lifecycle.first_guard.action.toUpperCase()}: {f.lifecycle.first_guard.detail}
+                              </div>
+                            </div>
+                          )}
+                          {f.lifecycle.critic && (
+                            <div style={{"background":"#171717","padding":"6px 8px","borderLeft":"2px solid #FFD166"}}>
+                              <span style={{"color":"#FFD166","fontWeight":"700"}}>3. Critic</span>
+                              <div style={{"color":"#CFCAC0","fontSize":"11px","marginTop":"2px"}}>
+                                {f.lifecycle.critic.verdict.toUpperCase()}: {f.lifecycle.critic.reason}
+                              </div>
+                            </div>
+                          )}
+                          {f.lifecycle.second_guard && (
+                            <div style={{"background":"#171717","padding":"6px 8px","borderLeft":"2px solid #10B981"}}>
+                              <span style={{"color":"#10B981","fontWeight":"700"}}>4. Second Guard</span>
+                              <div style={{"color":"#CFCAC0","fontSize":"11px","marginTop":"2px"}}>
+                                {f.lifecycle.second_guard.action.toUpperCase()}: {f.lifecycle.second_guard.detail}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1220,7 +1457,7 @@ VERITY
           </div>
           <div style={{"display":"flex","alignItems":"center","gap":"12px"}}>
             <span style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"12px","color":"#7BE0A4","background":"rgba(123, 224, 164, 0.1)","padding":"6px 12px","border":"1px solid #7BE0A4"}}>
-              Canon v2.0 Active · {CANON_RULES.length} Rules · {CANON_FACTS.length} Facts
+              Active Brand Canon · {CANON_RULES.length} Rules · {CANON_FACTS.length} Facts
             </span>
             <button
               type="button"
@@ -1239,7 +1476,7 @@ VERITY
             <span>CANONICAL ENFORCEMENT RULES ({filteredRules.length})</span>
             <span style={{"fontSize":"11px","color":"#8E897E"}}>DETERMINISTIC REGEX &amp; AGENT GUARDRAILS</span>
           </div>
-          <div style={{"overflowX":"auto","border":"1px solid #27272A"}}>
+          <div className="desktop-table" style={{"overflowX":"auto","border":"1px solid #27272A"}}>
             <table style={{"width":"100%","borderCollapse":"collapse","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"14px","textAlign":"left"}}>
               <thead>
                 <tr style={{"background":"#111111","borderBottom":"2px solid #27272A","color":"#8E897E","fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","letterSpacing":"0.06em"}}>
@@ -1287,6 +1524,31 @@ VERITY
               </tbody>
             </table>
           </div>
+
+          {/* Mobile responsive card alternative for Canonical Rules */}
+          <div className="mobile-card-list" style={{"display":"none","flexDirection":"column","gap":"10px"}}>
+            {filteredRules.map((rule) => (
+              <div key={rule.code} style={{"background":"#18181B","border":"1px solid #27272A","padding":"14px","display":"flex","flexDirection":"column","gap":"8px"}}>
+                <div style={{"display":"flex","justifyContent":"space-between","alignItems":"center","gap":"8px"}}>
+                  <span style={{"fontFamily":"'JetBrains Mono', monospace","fontWeight":"700","color":"#3B66FF"}}>{rule.code}</span>
+                  <span style={{
+                    "fontFamily":"'JetBrains Mono', monospace",
+                    "fontSize":"11px",
+                    "fontWeight":"700",
+                    "padding":"2px 6px",
+                    "border": rule.severity === 'HIGH' ? '1px solid #EF4444' : rule.severity === 'MEDIUM' ? '1px solid #FFD166' : '1px solid #7BE0A4',
+                    "color": rule.severity === 'HIGH' ? '#EF4444' : rule.severity === 'MEDIUM' ? '#FFD166' : '#7BE0A4',
+                    "background": rule.severity === 'HIGH' ? 'rgba(239, 68, 68, 0.1)' : rule.severity === 'MEDIUM' ? 'rgba(255, 209, 102, 0.1)' : 'rgba(123, 224, 164, 0.1)'
+                  }}>
+                    {rule.severity}
+                  </span>
+                </div>
+                <div style={{"fontSize":"12px","color":"#CFCAC0"}}>{rule.category} · {rule.enforcer}</div>
+                <div style={{"color":"#F4F1EA","fontSize":"14px","lineHeight":"1.4"}}>{rule.description}</div>
+                <div style={{"color":"#7BE0A4","fontFamily":"'JetBrains Mono', monospace","fontSize":"12px"}}>Preferred: "{rule.preferred}"</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Section 2: Canonical Facts Table */}
@@ -1295,7 +1557,7 @@ VERITY
             <span>CANONICAL APPROVED FACTS ({filteredFacts.length})</span>
             <span style={{"fontSize":"11px","color":"#8E897E"}}>GROUND TRUTH CITATIONS FOR VERIFICATION AGENTS</span>
           </div>
-          <div style={{"overflowX":"auto","border":"1px solid #27272A"}}>
+          <div className="desktop-table" style={{"overflowX":"auto","border":"1px solid #27272A"}}>
             <table style={{"width":"100%","borderCollapse":"collapse","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"14px","textAlign":"left"}}>
               <thead>
                 <tr style={{"background":"#111111","borderBottom":"2px solid #27272A","color":"#8E897E","fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","letterSpacing":"0.06em"}}>
@@ -1326,6 +1588,22 @@ VERITY
                 ))}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile responsive card alternative for Canonical Facts */}
+          <div className="mobile-card-list" style={{"display":"none","flexDirection":"column","gap":"10px"}}>
+            {filteredFacts.map((fact) => (
+              <div key={fact.code} style={{"background":"#18181B","border":"1px solid #27272A","padding":"14px","display":"flex","flexDirection":"column","gap":"8px"}}>
+                <div style={{"display":"flex","justifyContent":"space-between","alignItems":"center","gap":"8px"}}>
+                  <span style={{"fontFamily":"'JetBrains Mono', monospace","fontWeight":"700","color":"#3B66FF"}}>{fact.code}</span>
+                  <span style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","color":"#7BE0A4","border":"1px solid #7BE0A4","padding":"2px 6px","background":"rgba(123, 224, 164, 0.1)"}}>
+                    {fact.status}
+                  </span>
+                </div>
+                <div style={{"fontSize":"12px","color":"#CFCAC0"}}>{fact.category}</div>
+                <div style={{"color":"#F4F1EA","fontSize":"14px","lineHeight":"1.4"}}>{fact.statement}</div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -1381,7 +1659,8 @@ VERITY
         </div>
 
         {/* History Table */}
-        <div style={{"overflowX":"auto","border":"1px solid #27272A"}}>
+        {/* History Table (Desktop / Tablet) */}
+        <div className="desktop-table" style={{"overflowX":"auto","border":"1px solid #27272A"}}>
           <table style={{"width":"100%","borderCollapse":"collapse","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"14px","textAlign":"left"}}>
             <thead>
               <tr style={{"background":"#111111","borderBottom":"2px solid #27272A","color":"#8E897E","fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","letterSpacing":"0.06em"}}>
@@ -1460,6 +1739,40 @@ VERITY
               ))}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile responsive card alternative for Decision History */}
+        <div className="mobile-card-list" style={{"display":"none","flexDirection":"column","gap":"12px"}}>
+          {historyItems.map((item) => (
+            <div key={item.id} style={{"background":"#18181B","border":"1px solid #27272A","padding":"14px","display":"flex","flexDirection":"column","gap":"8px"}}>
+              <div style={{"display":"flex","justifyContent":"space-between","alignItems":"center","gap":"8px"}}>
+                <span style={{"fontFamily":"'JetBrains Mono', monospace","fontWeight":"700","color":"#3B66FF","fontSize":"12px"}}>{item.id}</span>
+                <span style={{
+                  "fontFamily":"'JetBrains Mono', monospace",
+                  "fontSize":"11px",
+                  "fontWeight":"700",
+                  "padding":"2px 6px",
+                  "border": item.status === 'PASSED' ? '1px solid #7BE0A4' : '1px solid #EF4444',
+                  "color": item.status === 'PASSED' ? '#7BE0A4' : '#EF4444',
+                  "background": item.status === 'PASSED' ? 'rgba(123, 224, 164, 0.1)' : 'rgba(239, 68, 68, 0.1)'
+                }}>
+                  {item.status}
+                </span>
+              </div>
+              <div style={{"fontSize":"11px","color":"#8E897E"}}>{item.timestamp} · {item.route} ({item.calls} LLM)</div>
+              <div style={{"color":"#F4F1EA","fontSize":"13px","lineHeight":"1.4"}}>"{item.copy}"</div>
+              <div style={{"display":"flex","justifyContent":"space-between","alignItems":"center","marginTop":"4px"}}>
+                <span style={{"fontSize":"12px","color":"#CFCAC0"}}>{item.findingsCount} finding(s)</span>
+                <button
+                  type="button"
+                  onClick={() => setExpandedRunId(expandedRunId === item.id ? null : item.id)}
+                  style={{"background":"#111","color":"#3B66FF","border":"1px solid #3B66FF","padding":"4px 10px","fontSize":"11px","fontFamily":"'JetBrains Mono', monospace","cursor":"pointer"}}
+                >
+                  {expandedRunId === item.id ? "Hide Details" : "Inspect Run"}
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* Expanded Run Detail Modal/Card if any run selected */}

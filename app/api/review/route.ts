@@ -158,10 +158,13 @@ async function reviewWithPipelineV2(
     }
   } else if (uiFindings.length > 0) {
     const insertResult = await supabase.from("findings").insert(
-      uiFindings.map((finding) => ({
-        ...finding,
-        review_run_id: runResult.data.id,
-      }))
+      uiFindings.map((finding) => {
+        const { enrichments, lifecycle, ...dbRow } = finding as any
+        return {
+          ...dbRow,
+          review_run_id: runResult.data.id,
+        }
+      })
     )
 
     if (insertResult.error) {
@@ -419,10 +422,13 @@ export async function POST(req: Request) {
       }
     } else if (identifiedFindings.length > 0) {
       const insertResult = await supabase.from("findings").insert(
-        identifiedFindings.map((finding) => ({
-          ...finding,
-          review_run_id: runResult.data.id,
-        }))
+        identifiedFindings.map((finding) => {
+          const { enrichments, lifecycle, ...dbRow } = finding as any
+          return {
+            ...dbRow,
+            review_run_id: runResult.data.id,
+          }
+        })
       )
 
       if (insertResult.error) {

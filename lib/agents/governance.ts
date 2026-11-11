@@ -8,12 +8,12 @@
 
 import { isAgent, isImmutable } from "./guards";
 import type {
-  AgentActivity, Disagreement, EvidenceStrength, Finding, Governance, GovernedFinding,
-  Severity, Suppressed, TraceStep,
+  AgentActivity, CriticConsensus, Disagreement, EvidenceStrength, Finding, Governance, GovernedFinding,
+  Severity, Suppressed, SuppressedFindingDetail, TraceStep,
 } from "./types";
 
 /** Bump when prompts, roles or guard rules change. Part of the cache key, so old cached reviews never match. */
-export const CONFIG_VERSION = "verity-agents-2.0.0";
+export const CONFIG_VERSION = "verity-governance-2.2.0";
 
 const SPECIALIST_LABEL: Record<string, string> = {
   fact: "Claim Verification Agent",
@@ -94,28 +94,44 @@ export function reviewReasons(f: Finding, severity: Severity, evidence: Evidence
 
 export function buildDisagreements(i: {
   contests: { id: string; stance: "dismiss" | "downgrade"; reason: string }[];
-  verdicts: { id: string; verdict: "keep" | "dismiss" | "downgrade" | "needs_evidence" }[];
+  verdicts: { id: string; verdict: "keep" | "dismiss" | "downgrade" | "needs_evidence"; reason?: string }[];
   criticRan: boolean;
   suppressed: Suppressed[];
   findings: Finding[];
 }): Disagreement[] {
-  const verdictById = new Map(i.verdicts.map((v) => [v.id, v.verdict]));
-  const dismissed = new Set(i.suppressed.filter((s) => s.by === "critic").map((s) => s.finding.id));
+  const verdictById = new Map(i.verdicts.map((v) => [v.id, v]));
+  const dismissed = new Set(i.suppressed.map((s) => s.finding.id));
   const byId = new Map(i.findings.map((f) => [f.id, f]));
 
   return i.contests.map((c) => {
     const v = verdictById.get(c.id);
     const f = byId.get(c.id);
     let resolution: string;
-    if (dismissed.has(c.id)) resolution = "Critic dismissed the finding as a false positive.";
-    else if (!i.criticRan) resolution = "No critic ran; the finding is kept for a human to decide.";
-    else if (!v) resolution = "Critic did not rule on this; the finding is kept.";
-    else if (v === "keep") resolution = "Critic kept the finding.";
-    else if (f && isImmutable(f)) resolution = "Kept: deterministic evidence cannot be cleared by a model.";
-    else if (v === "downgrade") resolution = "Critic downgraded the finding to grade C.";
-    else if (v === "needs_evidence") resolution = "Critic could not decide from the canon; downgraded for human review.";
-    else resolution = "Critic ruled on this finding.";
-    return { finding_id: c.id, raised_by: "Specialist panel", stance: c.stance, reason: c.reason, resolution };
+    if (dismissed.has(c.id)) {
+      resolution = `Critic dismissed the finding as a false positive (${v?.reason || "unsupported claim"}).`;
+    } else if (!i.criticRan) {
+      resolution = "No critic ran; the finding is kept for a human to decide.";
+    } else if (!v) {
+      resolution = "Critic did not rule on this; the finding is kept.";
+    } else if (v.verdict === "keep") {
+      resolution = `Critic kept the finding (${v.reason || "substantiated by canon"}).`;
+    } else if (f && isImmutable(f)) {
+      resolution = "Kept: deterministic evidence cannot be cleared by a model.";
+    } else if (v.verdict === "downgrade") {
+      resolution = `Critic downgraded the finding to grade C (${v.reason || "mitigated"}).`;
+    } else if (v.verdict === "needs_evidence") {
+      resolution = `Critic could not decide from the canon (${v.reason || "insufficient evidence"}); downgraded for human review.`;
+    } else {
+      resolution = "Critic ruled on this finding.";
+    }
+    return {
+      finding_id: c.id,
+      raised_by: "Specialist panel",
+      stance: c.stance,
+      reason: c.reason,
+      resolution,
+      critic_explanation: v?.reason,
+    };
   });
 }
 
@@ -125,9 +141,10 @@ export function buildGovernance(i: {
   trace: TraceStep[];
   disagreements: Disagreement[];
   idempotencyKey: string;
+  consensus?: CriticConsensus;
 }): Governance {
   const findings: GovernedFinding[] = i.findings.map((f) => {
-    const severity = severityOf(f);
+    const severity = f.severity ?? severityOf(f);
     const evidence = evidenceOf(f);
     const reasons = reviewReasons(f, severity, evidence);
     return {
@@ -141,11 +158,25 @@ export function buildGovernance(i: {
       confidence: typeof f.confidence === "number" ? f.confidence : null,
       evidence_strength: evidence,
       severity,
-      requires_human_review: reasons.length > 0,
+      requires_human_review: reasons.length > 0 || Boolean(f.requires_human_review),
       review_reasons: reasons,
       has_verified_patch: Boolean(f.patch?.verified),
+      enrichments: f.enrichments,
+      lifecycle: f.lifecycle,
     };
   });
+
+  const suppressed_details: SuppressedFindingDetail[] = i.suppressed.map((s) => ({
+    id: s.finding.id,
+    quote: s.finding.quote,
+    category: s.finding.category,
+    source: s.finding.source,
+    critic_verdict: s.critic_verdict || "dismiss",
+    critic_explanation: s.critic_explanation || s.reason,
+    second_guard_explanation:
+      s.second_guard_explanation ||
+      `Second guard verified finding is non-deterministic (source: ${s.finding.source}, grade: ${s.finding.grade}) and confirmed critic dismissal.`,
+  }));
 
   // Count roles, not calls: one packed call can run three specialists.
   const involved = new Set<string>();
@@ -168,8 +199,10 @@ export function buildGovernance(i: {
       unverifiable: findings.filter((f) => /unsupported/i.test(f.category) && f.evidence_strength === "none").length,
     },
     human_review_required: needs > 0,
+    consensus: i.consensus,
     agents: activityFrom(i.trace),
     findings,
     disagreements: i.disagreements,
+    suppressed_details,
   };
 }

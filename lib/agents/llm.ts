@@ -60,6 +60,9 @@ export class LlmError extends Error {
 // Module state lives per warm serverless instance, which is good enough for a demo.
 let quotaOpenUntil = 0;
 export const isQuotaOpen = (): boolean => Date.now() < quotaOpenUntil;
+export const resetQuotaCircuit = (): void => {
+  quotaOpenUntil = 0;
+};
 
 interface CallOpts<T> {
   /** Trusted instructions (role prompts, schema description). */
@@ -98,7 +101,7 @@ export async function callJson<T>(opts: CallOpts<T>): Promise<T> {
   const generationConfig: Record<string, unknown> = {
     temperature: 0,
     responseMimeType: "application/json",
-    maxOutputTokens: opts.maxOutputTokens ?? 2048,
+    maxOutputTokens: opts.maxOutputTokens ?? 8192,
   };
   // Classification work doesn't need thinking tokens (cheaper, faster). 2.5 Pro can't disable it.
   if (/2\.5-flash/.test(model)) generationConfig.thinkingConfig = { thinkingBudget: 0 };
@@ -138,20 +141,214 @@ export async function callJson<T>(opts: CallOpts<T>): Promise<T> {
   if (status < 200 || status >= 300) throw new LlmError("http", `Gemini HTTP ${status}`);
 
   let text = "";
+  let isTruncated = false;
   try {
     const data = JSON.parse(bodyText) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
+      candidates?: {
+        content?: { parts?: { text?: string }[] };
+        finishReason?: string;
+      }[];
     };
-    text = (data.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("").trim();
+    const cand = data.candidates?.[0];
+    isTruncated = cand?.finishReason === "MAX_TOKENS";
+    text = (cand?.content?.parts ?? []).map((p) => p.text ?? "").join("").trim();
   } catch {
     throw new LlmError("parse", "Gemini returned a non-JSON envelope");
   }
   if (!text) throw new LlmError("parse", "empty model output");
 
-  const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  const cleaned = stripCodeFences(text);
+  let parsedRaw: unknown = null;
   try {
-    return opts.parse(JSON.parse(cleaned));
+    parsedRaw = JSON.parse(cleaned);
+  } catch (parseErr) {
+    // Attempt robust JSON repair for common truncation / formatting cutoffs
+    parsedRaw = repairTruncatedJson(cleaned);
+    if (!parsedRaw) {
+      const syntaxMsg = (parseErr as Error)?.message ?? "malformed JSON";
+      if (isTruncated) {
+        throw new LlmError("parse", `model output was truncated at ${text.length} chars (finishReason: MAX_TOKENS): ${syntaxMsg.slice(0, 140)}`);
+      }
+      throw new LlmError("parse", `model produced invalid JSON: ${syntaxMsg.slice(0, 140)}`);
+    }
+  }
+
+  try {
+    return opts.parse(parsedRaw);
   } catch (e) {
+    if (isTruncated) {
+      throw new LlmError("parse", `model output was truncated and failed schema validation: ${(e as Error)?.message?.slice(0, 140)}`);
+    }
     throw new LlmError("parse", `model output failed validation: ${(e as Error)?.message?.slice(0, 160)}`);
   }
+}
+
+/** Clean markdown code fences safely even with surrounding whitespace */
+export function stripCodeFences(raw: string): string {
+  let s = String(raw ?? "").trim();
+  s = s.replace(/^```(?:json)?\s*/i, "");
+  s = s.replace(/\s*```\s*$/i, "");
+  return s.trim();
+}
+
+/** Close unclosed braces, brackets, and quotes in truncated JSON strings */
+export function closeOpenBrackets(text: string): string {
+  let inString = false;
+  let escape = false;
+  const stack: string[] = [];
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+
+    if (ch === "{" || ch === "[") {
+      stack.push(ch);
+    } else if (ch === "}") {
+      if (stack.length && stack[stack.length - 1] === "{") stack.pop();
+    } else if (ch === "]") {
+      if (stack.length && stack[stack.length - 1] === "[") stack.pop();
+    }
+  }
+
+  let result = text;
+  if (inString) {
+    result += '"';
+  }
+  // Remove any trailing commas right before closing
+  result = result.replace(/,\s*$/, "");
+
+  while (stack.length > 0) {
+    const open = stack.pop();
+    if (open === "{") result += "}";
+    else if (open === "[") result += "]";
+  }
+
+  return result;
+}
+
+/** Extract all balanced top-level JSON objects from text */
+export function extractBalancedObjects(text: string): unknown[] {
+  const results: unknown[] = [];
+  let depth = 0;
+  let start = -1;
+  let inString = false;
+  let escape = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+
+    if (ch === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (ch === "}") {
+      depth--;
+      if (depth === 0 && start !== -1) {
+        const chunk = text.slice(start, i + 1);
+        try {
+          const parsed = JSON.parse(chunk);
+          results.push(parsed);
+        } catch {
+          // ignore malformed inner chunk
+        }
+        start = -1;
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Robust JSON repair for common LLM truncation / formatting issues.
+ * Handles trailing commas, cut-off strings, truncated arrays, and partial objects.
+ */
+export function repairTruncatedJson(raw: string): unknown | null {
+  const s = stripCodeFences(raw);
+  if (!s) return null;
+
+  // 1. Direct trailing comma fix
+  try {
+    const fixedCommas = s.replace(/,\s*([}\]])/g, "$1");
+    return JSON.parse(fixedCommas);
+  } catch {
+    // continue
+  }
+
+  // 2. Backtrack repair: find the last completed object or array item
+  for (let i = s.length - 1; i >= 0; i--) {
+    const char = s[i];
+    if (char === "}" || char === "]") {
+      const candidate = s.slice(0, i + 1);
+      const cleanCandidate = candidate.replace(/,\s*$/, "");
+      const closed = closeOpenBrackets(cleanCandidate);
+      try {
+        const parsed = JSON.parse(closed);
+        if (parsed && typeof parsed === "object") {
+          return parsed;
+        }
+      } catch {
+        // continue backtracking
+      }
+    }
+  }
+
+  // 3. Fallback: Extract all balanced objects and synthesize expected container
+  const extracted = extractBalancedObjects(s);
+  if (extracted.length > 0) {
+    const assembled: Record<string, unknown[]> = {
+      evaluations: [],
+      findings: [],
+      contests: [],
+      fixes: [],
+    };
+    for (const obj of extracted) {
+      if (typeof obj === "object" && obj !== null) {
+        const rec = obj as Record<string, unknown>;
+        if ("claim_id" in rec || "verdict" in rec) {
+          assembled.evaluations.push(rec);
+        } else if ("quote" in rec && "category" in rec) {
+          assembled.findings.push(rec);
+        } else if ("stance" in rec && "finding_id" in rec) {
+          assembled.contests.push(rec);
+        } else if ("replacement" in rec && "finding_id" in rec) {
+          assembled.fixes.push(rec);
+        }
+      }
+    }
+    if (
+      assembled.evaluations.length > 0 ||
+      assembled.findings.length > 0 ||
+      assembled.contests.length > 0 ||
+      assembled.fixes.length > 0
+    ) {
+      return assembled;
+    }
+  }
+
+  return null;
 }

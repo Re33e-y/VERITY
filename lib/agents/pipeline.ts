@@ -7,13 +7,28 @@ import { createHash } from "node:crypto";
 import { CallBudget, LlmError, getMaxCalls, getPolicy, isQuotaOpen } from "./llm";
 import { makePlan, kindOf } from "./orchestrator";
 import { runGroup, type Contest, type Fix, type PanelResult } from "./specialists";
-import { pickCandidates, runCritic, type Verdict } from "./critic";
+import { pickCandidates, runCritic, type CriticOutput, type Verdict } from "./critic";
 import { remediate, type Proposal } from "./remediation";
 import { addNote, applyJudgements, mergeAgentFindings, type Judgement } from "./guards";
 import { CONFIG_VERSION, buildDisagreements, buildGovernance } from "./governance";
 import type {
-  AgenticResult, CacheAdapter, Canon, Disagreement, Finding, OfflineFn, Span, Suppressed, TraceStep,
+  AgenticResult, CacheAdapter, Canon, CriticConsensus, Disagreement, Finding, OfflineFn, Span, Suppressed, TraceStep,
 } from "./types";
+
+export const PIPELINE_VERSION = "verity-pipeline-2.2.0";
+export const PROMPT_VERSION = "agents-prompt-v2.2";
+export const SCHEMA_VERSION = "agents-schema-v2.2";
+
+export function canonDigest(canon: Canon): string {
+  const rules = (canon.rules || []).map((r) => `${r.id}:${r.category}:${r.text}:${r.replacement ?? ""}`).sort();
+  const facts = (canon.facts || []).map((f) => `${f.id}:${f.text}:${(f.keywords || []).sort().join(",")}:${f.valid_until ?? ""}`).sort();
+  const entities = (canon.entities || []).map((e) => `${e.name}:${(e.aliases ?? []).sort().join(",")}`).sort();
+  const rels = (canon.relationships || []).map((rel) => `${rel.source}:${rel.target}:${rel.type}`).sort();
+  return createHash("sha256")
+    .update(JSON.stringify([canon.version, rules, facts, entities, rels]))
+    .digest("hex")
+    .slice(0, 16);
+}
 
 export interface PipelineInput {
   text: string;
@@ -46,8 +61,16 @@ export async function runAgenticReview(input: PipelineInput): Promise<AgenticRes
   const maxCalls = getMaxCalls(policy);
   const trace: TraceStep[] = [];
   const warnings: string[] = [];
-  const step = (agent: string, kind: TraceStep["kind"], ok: boolean, detail: string, calls = 0, since = t0) =>
-    trace.push({ agent, kind, ok, calls, ms: Date.now() - since, detail });
+  const step = (
+    agent: string,
+    kind: TraceStep["kind"],
+    ok: boolean,
+    detail: string,
+    calls = 0,
+    since = t0,
+    extra?: Partial<TraceStep>
+  ) =>
+    trace.push({ agent, kind, ok, calls, ms: Date.now() - since, detail, ...extra });
 
   const offline = normalizeIds(input.offline);
   const plan = makePlan({ text, offline, ambiguous: input.ambiguous, policy, maxCalls });
@@ -59,35 +82,75 @@ export async function runAgenticReview(input: PipelineInput): Promise<AgenticRes
   const offlineSig = offline
     .map((f) => [f.start, f.end, f.grade, f.category, f.citations.map((c) => c.id).join("+")].join(":"))
     .join("|");
+  const cDigest = canonDigest(canon);
   const cacheKey = createHash("sha256")
     .update(
       JSON.stringify([
-        CONFIG_VERSION, policy, maxCalls, process.env.GEMINI_MODEL ?? "", canon.version,
-        new Date().toISOString().slice(0, 10), offlineSig, text,
+        PIPELINE_VERSION,
+        CONFIG_VERSION,
+        PROMPT_VERSION,
+        SCHEMA_VERSION,
+        policy,
+        maxCalls,
+        process.env.GEMINI_MODEL ?? "",
+        canon.version,
+        cDigest,
+        new Date().toISOString().slice(0, 10),
+        offlineSig,
+        text,
       ]),
     )
     .digest("hex");
 
   /** Every result leaves through here so it always carries the governance report. */
-  const seal = (r: Omit<AgenticResult, "governance">, disagreements: Disagreement[] = []): AgenticResult => ({
+  const seal = (
+    r: Omit<AgenticResult, "governance">,
+    disagreements: Disagreement[] = [],
+    consensus?: CriticConsensus
+  ): AgenticResult => ({
     ...r,
+    pipeline_version: PIPELINE_VERSION,
+    config_version: CONFIG_VERSION,
+    schema_version: SCHEMA_VERSION,
+    canon_digest: cDigest,
     governance: buildGovernance({
       findings: r.findings,
       suppressed: r.suppressed,
       trace: r.trace,
       disagreements,
       idempotencyKey: cacheKey,
+      consensus,
     }),
   });
 
   const base = { suppressed: [] as Suppressed[], warnings, plan, trace };
   if (!plan.engage) {
-    return seal({ ...base, findings: offline, status: "skipped", ai_unavailable: false, calls_used: 0, cache_hit: false });
+    return seal(
+      { ...base, findings: offline, status: "skipped", ai_unavailable: false, calls_used: 0, cache_hit: false },
+      [],
+      {
+        status: "no_findings_to_review",
+        verdicts: [],
+        agreed_count: 0,
+        disagreed_count: 0,
+        summary: "Review skipped (no ambiguous claims identified).",
+      }
+    );
   }
   if (isQuotaOpen()) {
     warnings.push("Gemini quota circuit is open; using offline findings.");
     step("orchestrator", "skip", false, "quota circuit open");
-    return seal({ ...base, findings: offline, status: "degraded", ai_unavailable: true, calls_used: 0, cache_hit: false });
+    return seal(
+      { ...base, findings: offline, status: "degraded", ai_unavailable: true, calls_used: 0, cache_hit: false },
+      [],
+      {
+        status: "model_failure",
+        verdicts: [],
+        agreed_count: 0,
+        disagreed_count: 0,
+        summary: "Gemini quota circuit is open; used offline findings.",
+      }
+    );
   }
 
   // ---- cache ----
@@ -95,20 +158,37 @@ export async function runAgenticReview(input: PipelineInput): Promise<AgenticRes
     try {
       const hit = await input.cache.get(cacheKey);
       if (hit) {
-        step("cache", "cache", true, "served identical review from cache; 0 calls");
-        return {
-          ...hit,
-          cache_hit: true,
-          calls_used: 0,
-          trace: [...trace],
-          governance: buildGovernance({
-            findings: hit.findings,
-            suppressed: hit.suppressed,
-            trace,
-            disagreements: hit.governance?.disagreements ?? [],
-            idempotencyKey: cacheKey,
-          }),
-        };
+        // Cache validation: ensure entry was generated under current pipeline, config, schema, and canon
+        const isStale =
+          hit.pipeline_version !== PIPELINE_VERSION ||
+          hit.config_version !== CONFIG_VERSION ||
+          hit.schema_version !== SCHEMA_VERSION ||
+          hit.canon_digest !== cDigest;
+
+        if (isStale) {
+          step(
+            "cache",
+            "skip",
+            false,
+            `stale cache entry invalidated: version mismatch (cached: ${hit.pipeline_version ?? "legacy"}, current: ${PIPELINE_VERSION})`,
+          );
+        } else {
+          step("cache", "cache", true, "served identical review from cache; 0 calls");
+          return {
+            ...hit,
+            cache_hit: true,
+            calls_used: 0,
+            trace: [...trace],
+            governance: buildGovernance({
+              findings: hit.findings,
+              suppressed: hit.suppressed,
+              trace,
+              disagreements: hit.governance?.disagreements ?? [],
+              idempotencyKey: cacheKey,
+              consensus: hit.governance?.consensus,
+            }),
+          };
+        }
       }
     } catch {
       /* cache is best-effort */
@@ -136,38 +216,158 @@ export async function runAgenticReview(input: PipelineInput): Promise<AgenticRes
       agentFindings.push(...v.findings);
       contests.push(...v.contests);
       fixes.push(...v.fixes);
-      step(label, "llm", true, `${v.findings.length} finding(s), ${v.contests.length} contest(s), ${v.rejected.length} rejected by guards`, 1, tPanel);
+      step(
+        label,
+        "llm",
+        true,
+        `${v.findings.length} finding(s), ${v.contests.length} contest(s), ${v.rejected.length} rejected by guards`,
+        1,
+        tPanel,
+        {
+          verdict: v.findings.length > 0 ? v.findings.map((f) => f.verdict || f.category).join(", ") : "no_issue",
+          evidence: v.findings.flatMap((f) => f.citations.map((c) => c.id)).join(", ") || undefined,
+          reasoning: v.findings.map((f) => f.reasoning_summary || f.explanation).join("; ") || v.evaluations?.map((e) => e.reasoning_summary).join("; "),
+          confidence: v.findings.length > 0 ? Math.max(...v.findings.map((f) => f.confidence ?? 0)) : undefined,
+        }
+      );
     } else {
       const err = r.reason as Error;
       warnings.push(`${label}: ${err.message}`);
-      step(label, "llm", false, err.message, err instanceof LlmError && err.kind === "disabled" ? 0 : 1, tPanel);
+      const isTruncated = /truncated|max_tokens|finishreason/i.test(err.message);
+      const isInvalidJson = /invalid json|syntaxerror|unexpected end/i.test(err.message);
+      const failureKind = isTruncated
+        ? "model output was truncated"
+        : isInvalidJson
+        ? "model produced invalid JSON"
+        : "specialist execution failed";
+      step(
+        label,
+        "llm",
+        false,
+        `${label} failed (${failureKind}): ${err.message}`,
+        err instanceof LlmError && err.kind === "disabled" ? 0 : 1,
+        tPanel,
+        { reasoning: `Specialist failure classification: ${failureKind}. Detail: ${err.message}` }
+      );
     }
   });
 
   if (panelOk === 0) {
-    step("pipeline", "skip", false, "no specialist call succeeded; falling back to offline findings");
-    return seal({ ...base, findings: offline, status: "degraded", ai_unavailable: true, calls_used: budget.used, cache_hit: false });
+    step(
+      "pipeline",
+      "skip",
+      false,
+      "No specialist call succeeded; fell back to deterministic rule-based findings (offline)",
+      0,
+      Date.now(),
+      { reasoning: "Deterministic fallback findings are rule-based offline findings, not model-verified." }
+    );
+    const offlineLabeled: Finding[] = offline.map((f) => ({
+      ...f,
+      source: "offline",
+      notes: [
+        ...(f.notes ?? []),
+        "Deterministic rule-based finding (AI specialist validation unavailable or failed validation).",
+      ],
+    }));
+    return seal(
+      { ...base, findings: offlineLabeled, status: "degraded", ai_unavailable: true, calls_used: budget.used, cache_hit: false },
+      [],
+      {
+        status: "model_failure",
+        verdicts: [],
+        agreed_count: 0,
+        disagreed_count: 0,
+        summary: "No specialist call succeeded; fell back to offline rule-based findings.",
+      }
+    );
   }
 
   const merged = mergeAgentFindings(working, agentFindings);
   working = merged.merged;
-  step("guards", "guard", true, `${agentFindings.length - merged.dropped.length} agent finding(s) kept, ${merged.dropped.length} dropped as duplicates/over cap`);
+  const keptSummary = `${merged.kept.length} new finding(s) kept`;
+  const enrichedSummary = merged.enriched.length > 0 ? `${merged.enriched.length} enriched` : "";
+  const refinedSummary = merged.refined.length > 0 ? `${merged.refined.length} refined` : "";
+  const droppedSummary = `${merged.dropped.length} dropped as duplicates/over cap`;
+  const firstGuardDetail = [keptSummary, enrichedSummary, refinedSummary, droppedSummary].filter(Boolean).join(", ");
+
+  step(
+    "guards",
+    "guard",
+    true,
+    `First guard processed ${agentFindings.length} specialist finding(s): ${firstGuardDetail}`,
+    0,
+    Date.now(),
+    {
+      guard_status: merged.dropped.length === 0 ? "accepted" : "deduplicated",
+      reasoning: [
+        ...merged.enriched.map((e) => `[${e.findingId}] Enriched by ${e.specialist} (${e.category}): ${e.reasoning}`),
+        ...merged.refined.map((r) => `[${r.findingId}] Refined by ${r.specialist} (${r.category}): ${r.reasoning}`),
+        ...merged.dropped.map((d) => `Dropped: ${d}`),
+      ].join("; ") || undefined,
+    }
+  );
 
   // ---- 2. critic (reflection & judge) ----
   let verdicts: Verdict[] = [];
+  let criticConsensus: CriticConsensus | undefined = undefined;
   let criticRan = false;
-  if (plan.critic && budget.left >= 1) {
+  if (plan.critic) {
     const candidates = pickCandidates(working, contests, plan.focus);
-    if (candidates.length) {
+    if (candidates.length === 0) {
+      // 0 candidates to review - runCritic handles zero candidates deterministically with 0 calls
+      const criticOutput = await runCritic({ text, canon, candidates, contests, focus: plan.focus, budget, deadlineAt });
+      verdicts = criticOutput.verdicts;
+      criticConsensus = criticOutput.consensus;
+      criticRan = true;
+      step("critic", "plan", true, `Consensus: ${criticConsensus.status}. 0 findings to review.`, 0, Date.now(), {
+        critic_result: criticConsensus.status,
+        reasoning: criticConsensus.summary,
+      });
+    } else if (budget.left >= 1) {
       const tCritic = Date.now();
       try {
-        verdicts = await runCritic({ text, canon, candidates, contests, focus: plan.focus, budget, deadlineAt });
+        const criticOutput = await runCritic({ text, canon, candidates, contests, focus: plan.focus, budget, deadlineAt });
+        verdicts = criticOutput.verdicts;
+        criticConsensus = criticOutput.consensus;
         criticRan = true;
-        step("critic", "llm", true, `${verdicts.length} verdict(s): ${verdicts.map((v) => v.verdict).join(", ") || "none"}`, 1, tCritic);
+        step(
+          "critic",
+          "llm",
+          true,
+          `Consensus: ${criticConsensus.status}. ${verdicts.length} verdict(s): ${verdicts.map((v) => v.verdict).join(", ") || "none"}`,
+          1,
+          tCritic,
+          {
+            critic_result: criticConsensus.status,
+            verdict: verdicts.map((v) => `${v.id}:${v.verdict}`).join(", "),
+            reasoning: criticConsensus.summary,
+          }
+        );
       } catch (e) {
         warnings.push(`critic: ${(e as Error).message}`);
-        step("critic", "llm", false, (e as Error).message, e instanceof LlmError && e.kind === "disabled" ? 0 : 1, tCritic);
+        criticConsensus = {
+          status: "model_failure",
+          verdicts: [],
+          agreed_count: 0,
+          disagreed_count: 0,
+          summary: `Critic execution failed: ${(e as Error).message}`,
+        };
+        step("critic", "llm", false, (e as Error).message, e instanceof LlmError && e.kind === "disabled" ? 0 : 1, tCritic, {
+          critic_result: "model_failure",
+        });
       }
+    } else {
+      criticConsensus = {
+        status: "incomplete_review",
+        verdicts: [],
+        agreed_count: 0,
+        disagreed_count: 0,
+        summary: "Critic skipped due to call budget exhaustion.",
+      };
+      step("critic", "skip", false, "call budget exhausted", 0, Date.now(), {
+        critic_result: "incomplete_review",
+      });
     }
   }
 
@@ -202,7 +402,21 @@ export async function runAgenticReview(input: PipelineInput): Promise<AgenticRes
           .map((f) => ({ ...addNote(f, "Re-checked after critic feedback; not re-verified."), grade: "C" as const }));
         for (const f of targets) {
           if (!again.some((a) => a.start === f.start && a.end === f.end)) {
-            suppressed.push({ finding: f, reason: "critic requested evidence; specialist could not supply it", by: "critic" });
+            const whyCritic = "Critic requested evidence; specialist could not supply it.";
+            const whyGuard = `Second guard suppressed unproven finding (${f.category}) following failed evidence recheck.`;
+            suppressed.push({
+              finding: f,
+              reason: whyCritic,
+              by: "critic",
+              critic_verdict: "dismiss",
+              critic_explanation: whyCritic,
+              second_guard_explanation: whyGuard,
+              lifecycle: {
+                ...f.lifecycle,
+                critic: { verdict: "dismiss", reason: whyCritic },
+                second_guard: { action: "suppressed", detail: whyGuard },
+              },
+            });
           }
           rechecked.add(f.id);
         }
@@ -223,11 +437,28 @@ export async function runAgenticReview(input: PipelineInput): Promise<AgenticRes
         id: v.id,
         // Unresolved needs_evidence is treated as "real but unproven": downgrade, let a human decide.
         action: v.verdict === "keep" ? "keep" : v.verdict === "dismiss" ? "dismiss" : "downgrade",
-        reason: v.reason || (v.verdict === "needs_evidence" ? "critic could not verify from the canon" : ""),
+        reason: v.reason || (v.verdict === "needs_evidence" ? "critic could not verify from the canon" : "critic evaluated finding"),
       }));
     const applied = applyJudgements(working, judgements, suppressed);
     working = applied.findings;
-    step("guards", "guard", true, `applied ${judgements.length} judgement(s); ${suppressed.length} suppressed; ${applied.overruled.length} refused (deterministic evidence)`);
+
+    const secondGuardSuppressedDetail = suppressed
+      .filter((s) => s.by === "critic" && judgements.some((j) => j.id === s.finding.id && j.action === "dismiss"))
+      .map((s) => `[${s.finding.id}] ${s.second_guard_explanation || s.reason}`)
+      .join("; ");
+
+    step(
+      "guards",
+      "guard",
+      true,
+      `Second guard applied ${judgements.length} critic judgement(s): ${applied.suppressedCount} suppressed by critic, ${applied.overruled.length} overruled (deterministic Grade A), ${working.length} kept in final findings`,
+      0,
+      Date.now(),
+      {
+        guard_status: applied.overruled.length > 0 ? "overruled" : applied.suppressedCount > 0 ? "rejected" : "accepted",
+        reasoning: secondGuardSuppressedDetail || undefined,
+      }
+    );
   }
 
   // Where specialists disputed an offline finding, record who won and why (for the audit trail).
@@ -242,8 +473,20 @@ export async function runAgenticReview(input: PipelineInput): Promise<AgenticRes
   const tFix = Date.now();
   const rem = await remediate({ text, canon, findings: working, proposals, runOffline, budget, deadlineAt, allowRetry: plan.loop });
   working = rem.findings;
-  const patched = working.filter((f) => f.patch?.verified).length;
-  step("remediation", "verify", true, `${patched} verified patch(es)${rem.log.length ? `; ${rem.log.join("; ")}` : ""}`, 0, tFix);
+  const patched = working.filter((f) => f.patch?.status === "verified" || f.patch?.verified).length;
+  const rejectedPatches = working.filter((f) => f.patch?.status === "rejected").length;
+  step(
+    "remediation",
+    "verify",
+    true,
+    `${patched} verified patch(es), ${rejectedPatches} rejected patch(es)${rem.log.length ? `; ${rem.log.join("; ")}` : ""}`,
+    0,
+    tFix,
+    {
+      remediation_verification: patched > 0 ? "verified" : rejectedPatches > 0 ? "rejected" : "none",
+      reasoning: rem.log.join("; ") || undefined,
+    }
+  );
 
   // ---- finalize ----
   const findings = working.map(strip).sort((a, b) => a.start - b.start);
@@ -253,6 +496,7 @@ export async function runAgenticReview(input: PipelineInput): Promise<AgenticRes
       calls_used: budget.used, cache_hit: false, plan, trace,
     },
     disagreements,
+    criticConsensus,
   );
   if (input.cache && !warnings.length) {
     try {

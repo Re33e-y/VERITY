@@ -429,6 +429,22 @@ export default function Home() {
       source: finding.source,
       body: (
         <>
+          <div className="flex flex-wrap gap-2 mb-2 font-mono text-xs">
+            {finding.source?.startsWith("agent:") ? (
+              <span className="rounded border border-primary/40 bg-primary/10 px-2 py-0.5 text-primary font-semibold">
+                ⚡ Model-verified (AI)
+              </span>
+            ) : (
+              <span className="rounded border border-warning/40 bg-warning/10 text-warning px-2 py-0.5 font-semibold">
+                🔒 Rule-based (Offline)
+              </span>
+            )}
+            {finding.requires_human_review && (
+              <span className="rounded border border-destructive/40 bg-destructive/10 text-destructive px-2 py-0.5 font-semibold">
+                ⚖ Human review required
+              </span>
+            )}
+          </div>
           <div className="space-y-1">
             <p className="m-0 text-[13px] font-semibold text-foreground">Message</p>
             <p className="m-0 break-words text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
@@ -775,13 +791,13 @@ export default function Home() {
                       ))}
                     </div>
 
-                    {/* VERITY 2.0 Agentic Architecture Trace */}
+                    {/* VERITY Agentic Architecture Trace */}
                     {(result.governance || (result.agentTrace && result.agentTrace.length > 0)) && (
                       <div className="rounded-xl border border-primary/25 bg-primary/[0.03] p-4 space-y-4">
                         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-foreground/10 pb-3">
                           <div>
                             <span className="font-mono text-xs uppercase tracking-wider text-primary font-bold">
-                              VERITY 2.0 · Agent-First Governance
+                              VERITY · Agent-First Governance
                             </span>
                             <h4 className="text-base font-semibold text-foreground m-0">
                               Multi-Agent Execution & Evidence Trace

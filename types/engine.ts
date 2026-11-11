@@ -44,8 +44,27 @@ export interface Finding {
   canon_version: number
   grade: Grade
   verdict: Verdict | null
-  source: "rule" | "ai"
+  source: "rule" | "ai" | string
   severity: Severity
   explanation: string
   suggested_fix: string | null
+  requires_human_review?: boolean
+  ai_notes?: string[]
+  enrichments?: Array<{
+    agent: string
+    category: string
+    verdict?: string | null
+    confidence?: number
+    citations: Array<{ type: "rule" | "fact"; id: string }>
+    reasoning: string
+    legal_interpretation?: string
+    requires_human_review?: boolean
+    suggested_fix?: string | null
+  }>
+  lifecycle?: {
+    specialist?: { agent: string; verdict?: string | null; confidence?: number; reasoning?: string }
+    first_guard?: { action: string; detail: string }
+    critic?: { verdict: string; reason: string }
+    second_guard?: { action: string; detail: string }
+  }
 }

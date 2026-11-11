@@ -65,9 +65,19 @@ export function contextFor(
   return { rules: retrieveRules(kinds, focusText, canon), facts: retrieveFacts(focusText, canon) };
 }
 
+export function normalizeCitationId(id: string): string {
+  let s = String(id ?? "").trim();
+  let prev = "";
+  while (s !== prev) {
+    prev = s;
+    s = s.replace(/^(?:rule|fact|r|f)[:\s_-]+/i, "").trim();
+  }
+  return s;
+}
+
 export function canonBlock(rules: CanonRule[], facts: CanonFact[]): string {
   const r = rules.map((x) => `R:${x.id} [${x.category}] ${x.text}`).join("\n") || "(none)";
   const f =
     facts.map((x) => `F:${x.id} ${x.text}${x.valid_until ? ` (valid until ${x.valid_until})` : ""}`).join("\n") || "(none)";
-  return `CANON RULES\n${r}\n\nCANON FACTS\n${f}`;
+  return `CANON RULES (IDs are prefixed with R:)\n${r}\n\nCANON FACTS (IDs are prefixed with F:)\n${f}`;
 }

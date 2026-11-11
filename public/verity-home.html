@@ -437,7 +437,7 @@ VERITY
         </div>
         <div style="display: flex; flex-wrap: wrap; gap: 10px">
           <span id="res-badge-route" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; padding: 6px 12px; border: 1px solid #7BE0A4; color: #7BE0A4; background: rgba(123, 224, 164, 0.1)">Resolved locally</span>
-          <span id="res-badge-engine" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; padding: 6px 12px; border: 1px solid #8E897E; color: #CFCAC0; background: #1E1E1E">Canon v2.0</span>
+          <span id="res-badge-engine" style="font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600; padding: 6px 12px; border: 1px solid #8E897E; color: #CFCAC0; background: #1E1E1E">Active Brand Canon</span>
         </div>
       </div>
 
@@ -508,7 +508,7 @@ VERITY
       </div>
       <div style="display: flex; align-items: center; gap: 12px">
         <span style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #7BE0A4; background: rgba(123, 224, 164, 0.1); padding: 6px 12px; border: 1px solid #7BE0A4">
-          Canon v2.0 Active · 9 Rules · 4 Facts
+          Active Brand Canon · 9 Rules · 4 Facts
         </span>
         <button type="button" class="switch-to-workspace neo-btn" style="background: #3B66FF; color: #FFFFFF; padding: 8px 16px; border: 2px solid #111111; font-size: 14px">
           ← Return to Audit
@@ -1080,7 +1080,7 @@ function renderAuditResults(data, elapsedMs) {
     resBadgeRoute.style.color = '#FFD166';
   }
 
-  resBadgeEngine.textContent = 'Canon v' + (data.canonVersion || '2.0');
+  resBadgeEngine.textContent = 'Canon v' + (data.canonVersion || '1.0');
 
   // Stats
   resStatRules.textContent = data.evaluated?.rules ?? '—';
@@ -1093,7 +1093,7 @@ function renderAuditResults(data, elapsedMs) {
   if (data.agentTrace && data.agentTrace.length > 0) {
     const traceBox = document.createElement('div');
     traceBox.style.cssText = 'background: #171717; border: 2px solid #333; padding: 16px; margin-bottom: 16px; font-family: "JetBrains Mono", monospace; font-size: 12px;';
-    let stepsHtml = '<div style="font-size: 11px; color: #3B66FF; font-weight: 700; text-transform: uppercase; margin-bottom: 8px">VERITY 2.0 · MULTI-AGENT EXECUTION TRACE</div>';
+    let stepsHtml = '<div style="font-size: 11px; color: #3B66FF; font-weight: 700; text-transform: uppercase; margin-bottom: 8px">VERITY · MULTI-AGENT EXECUTION TRACE</div>';
     data.agentTrace.forEach(st => {
       stepsHtml += '<div style="display: flex; gap: 8px; margin-bottom: 6px; align-items: flex-start"><span style="width: 8px; height: 8px; border-radius: 50%; background: ' + (st.ok ? '#7BE0A4' : '#FFD166') + '; margin-top: 4px; flex-shrink: 0"></span><div><b style="color: #F4F1EA; text-transform: capitalize">' + st.agent.replace(/[-_]/g, ' ') + '</b> <span style="color: #888">(' + (st.calls > 0 ? st.calls + ' call · ' : 'code · ') + st.ms + 'ms)</span><div style="color: #CCC; font-family: \'Space Grotesk\', sans-serif; font-size: 13px">' + st.detail + '</div></div></div>';
     });

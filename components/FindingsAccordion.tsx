@@ -68,7 +68,7 @@ export type FindingItem = {
   title: string
   verdict: string
   grade: string
-  source: "rule" | "ai"
+  source: "rule" | "ai" | string
   body: ReactNode
 }
 

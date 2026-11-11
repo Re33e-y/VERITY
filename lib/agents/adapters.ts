@@ -1,10 +1,18 @@
 import { supabase } from "@/lib/supabase"
 import type { Fact, Finding as EngineFinding, Rule } from "@/types/engine"
-import type { AgenticResult, CacheAdapter, Canon, CanonFact, CanonRule, Citation, Finding, Grade, OfflineFn, Patch } from "./types"
+import type {
+  AgenticResult, CacheAdapter, Canon, CanonFact, CanonRule, Citation, Finding, FindingLifecycle,
+  Grade, OfflineFn, Patch, SpecialistEnrichment,
+} from "./types"
 
 type Row = Record<string, unknown>
 export type RawCanon = { version: number | string; rules: Rule[]; facts: Fact[] }
-export type FindingRow = EngineFinding & { ai_notes?: string[]; patch?: Patch | null }
+export type FindingRow = EngineFinding & {
+  ai_notes?: string[]
+  patch?: Patch | null
+  enrichments?: SpecialistEnrichment[]
+  lifecycle?: FindingLifecycle
+}
 
 const asRow = (value: unknown): Row => value as Row
 const str = (value: unknown, fallback = ""): string =>
@@ -24,7 +32,7 @@ type CanonIndex = ReturnType<typeof indexCanon>
 const ruleCategory = (type: string): string =>
   type === "tone" || type === "messaging" ? "Tone" : type || "Rule"
 
-export function toAgentCanon(raw: RawCanon): Canon {
+export function toAgentCanon(raw: RawCanon & { entities?: any[]; relationships?: any[] }): Canon {
   const rules: CanonRule[] = raw.rules.map((rule) => ({
     id: rule.code,
     category: ruleCategory(rule.type),
@@ -37,7 +45,13 @@ export function toAgentCanon(raw: RawCanon): Canon {
     keywords: fact.keywords,
     valid_until: fact.expires_at,
   }))
-  return { version: String(raw.version), rules, facts }
+  return {
+    version: String(raw.version),
+    rules,
+    facts,
+    ...(raw.entities ? { entities: raw.entities } : {}),
+    ...(raw.relationships ? { relationships: raw.relationships } : {}),
+  }
 }
 
 const toGrade = (grade: unknown): Grade =>
@@ -100,13 +114,21 @@ export function makeFindingMapper(raw: RawCanon) {
       const patch = finding.patch ?? null
 
       if (original) {
+        const enrichedVerdict =
+          finding.category === "Legal" || finding.verdict === "Needs legal review" || finding.requires_human_review
+            ? (original.verdict ?? "Needs legal review")
+            : (original.verdict ?? verdictFor(finding.category));
+
         return {
           ...original,
-          grade: finding.grade,
-          explanation: finding.explanation,
-          suggested_fix: finding.suggestion ?? original.suggested_fix,
+          verdict: enrichedVerdict,
+          grade: original.grade === "A" ? "A" : finding.grade,
+          explanation: finding.explanation || original.explanation,
+          suggested_fix: finding.patch?.replacement ?? finding.suggestion ?? original.suggested_fix,
           ai_notes: aiNotes,
           patch,
+          enrichments: finding.enrichments,
+          lifecycle: finding.lifecycle,
         }
       }
 
@@ -130,9 +152,11 @@ export function makeFindingMapper(raw: RawCanon) {
         source: "ai",
         severity,
         suggested_fix: finding.patch?.replacement ?? finding.suggestion ?? null,
-        explanation: `${finding.explanation} (AI-suggested, not independently verified).`,
+        explanation: `${finding.explanation}`,
         ai_notes: [`Raised by the ${kind} specialist as "${finding.category}".`, ...aiNotes],
         patch,
+        enrichments: finding.enrichments,
+        lifecycle: finding.lifecycle,
       }
     },
   }

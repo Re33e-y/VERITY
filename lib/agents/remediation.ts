@@ -35,7 +35,7 @@ async function verify(
   replacement: string,
   runOffline: OfflineFn,
   canon: Canon,
-): Promise<{ ok: boolean; why: string }> {
+): Promise<{ ok: boolean; why: string; failedFinding?: Finding }> {
   const r = replacement.trim();
   if (!r) return { ok: false, why: "empty replacement" };
   if (r === f.quote.trim()) return { ok: false, why: "replacement is identical to the original" };
@@ -44,9 +44,17 @@ async function verify(
   const patched = text.slice(0, f.start) + r + text.slice(f.end);
   const after = await runOffline(patched, canon);
   const window: Span = { start: f.start, end: f.start + r.length };
-  const cat = f.category.toLowerCase();
-  const still = after.find((a) => overlaps(a, window) && (a.grade === "A" || a.category.toLowerCase() === cat));
-  if (still) return { ok: false, why: `offline engine still flags the patched span (${still.category})` };
+
+  // Check if offline engine flags any rule or factual violation on the patched span
+  const still = after.find((a) => overlaps(a, window));
+  if (still) {
+    const detail = still.explanation ? ` - ${clean(still.explanation, 100)}` : "";
+    return {
+      ok: false,
+      why: `offline engine still flags the patched span (${still.category} rule ${still.id}${detail})`,
+      failedFinding: still,
+    };
+  }
   return { ok: true, why: "offline engine no longer flags the patched span" };
 }
 
@@ -65,8 +73,8 @@ function proposalFor(f: Finding, proposals: Map<string, Proposal>, canon: Canon)
 const RetryRaw = z.object({ fixes: z.array(z.unknown()).default([]) });
 const RetryFix = z.object({ finding_id: z.string(), replacement: z.string(), rationale: z.string().default("") });
 
-const RETRY_SYSTEM = `You are Verity's remediation agent. Each earlier rewrite below failed verification.
-Propose a new minimal replacement for each quote, using only facts and terms from the CANON. If the fix needs a human decision, omit it.
+const RETRY_SYSTEM = `You are Verity's remediation agent. Each earlier rewrite below failed verification because it still triggered Brand Canon rules or altered meaning.
+Propose a new minimal replacement for each quote, using ONLY facts and terms from the CANON. Avoid unverified superlatives, guarantees, or invented numbers. If the fix requires human decision, omit it.
 Return JSON only: {"fixes":[{"finding_id","replacement","rationale"}]}`;
 
 export async function remediate(ctx: {
@@ -81,13 +89,44 @@ export async function remediate(ctx: {
 }): Promise<{ findings: Finding[]; log: string[] }> {
   const out = [...ctx.findings];
   const log: string[] = [];
-  const failed: { i: number; why: string; prev: string }[] = [];
+  const failed: { i: number; why: string; prev: string; prop: Proposal }[] = [];
 
-  const accept = (i: number, prop: Proposal, why: string) => {
+  const accept = (i: number, prop: Proposal, why: string, attempts = 1) => {
     const f = out[i];
     out[i] = {
       ...f,
-      patch: { start: f.start, end: f.end, original: f.quote, replacement: prop.replacement.trim(), rationale: clean(prop.rationale, 200), origin: prop.origin, verified: true, verification: why },
+      patch: {
+        start: f.start,
+        end: f.end,
+        original: f.quote,
+        replacement: prop.replacement.trim(),
+        rationale: clean(prop.rationale, 200),
+        origin: prop.origin,
+        verified: true,
+        status: "verified",
+        verification: why,
+        attempts,
+      },
+    };
+  };
+
+  const reject = (i: number, prop: Proposal, why: string) => {
+    const f = out[i];
+    out[i] = {
+      ...f,
+      patch: {
+        start: f.start,
+        end: f.end,
+        original: f.quote,
+        replacement: prop.replacement.trim(),
+        rationale: clean(prop.rationale, 200),
+        origin: prop.origin,
+        verified: false,
+        status: "rejected",
+        verification: why,
+        failed_reason: why,
+      },
+      notes: [...(f.notes ?? []), `Patch rejected by deterministic verification: ${why}`],
     };
   };
 
@@ -95,13 +134,16 @@ export async function remediate(ctx: {
     const prop = proposalFor(out[i], ctx.proposals, ctx.canon);
     if (!prop) continue;
     const v = await verify(ctx.text, out[i], prop.replacement, ctx.runOffline, ctx.canon);
-    if (v.ok) accept(i, prop, v.why);
-    else {
-      failed.push({ i, why: v.why, prev: prop.replacement });
+    if (v.ok) {
+      accept(i, prop, v.why, 1);
+    } else {
+      failed.push({ i, why: v.why, prev: prop.replacement, prop });
+      reject(i, prop, v.why);
       log.push(`patch for ${out[i].id} rejected: ${v.why}`);
     }
   }
 
+  // Bounded retry attempt (when allowed and budget has capacity)
   if (ctx.allowRetry && failed.length && ctx.budget.left >= 1) {
     try {
       const { rules, facts } = contextFor(["fact", "legal", "tone"], failed.map((x) => out[x.i].quote).join(" "), ctx.canon);
@@ -124,8 +166,11 @@ export async function remediate(ctx: {
         const prop: Proposal = { replacement: clean(p.data.replacement, 400), origin: "retry", rationale: p.data.rationale };
         const v = await verify(ctx.text, out[slot.i], prop.replacement, ctx.runOffline, ctx.canon);
         if (v.ok) {
-          accept(slot.i, prop, v.why);
+          accept(slot.i, prop, v.why, 2);
           log.push(`retry fixed ${out[slot.i].id}`);
+        } else {
+          reject(slot.i, prop, v.why);
+          log.push(`retry for ${out[slot.i].id} failed again: ${v.why}`);
         }
       }
     } catch (e) {
@@ -133,10 +178,5 @@ export async function remediate(ctx: {
     }
   }
 
-  for (const x of failed) {
-    if (!out[x.i].patch) {
-      out[x.i] = { ...out[x.i], notes: [...(out[x.i].notes ?? []), `No auto-fix: ${x.why}.`] };
-    }
-  }
   return { findings: out, log };
 }

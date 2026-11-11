@@ -20,7 +20,7 @@ import type { Rule, Fact, Finding } from "@/types/engine";
 import { runDeterministic } from "./deterministic";
 import { runOfflineEngine } from "./offline";
 
-export type LLM = (system: string, user: string, role: "judge" | "verifier") => Promise<any>;
+export type LLM = (system: string, user: string, role: "judge" | "verifier") => Promise<unknown>;
 export type Policy = "auto" | "thorough" | "off";
 export type Route = "local" | "hybrid" | "degraded";
 export interface Cache {
@@ -107,8 +107,8 @@ export const supabaseCache = (db: SupabaseClient): Cache => ({
 async function ask(llm: LLM, system: string, user: string, role: "judge" | "verifier") {
   try {
     return await llm(system, user, role);
-  } catch (e: any) {
-    const msg = String(e?.message ?? e);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
     if (/\b429\b|RESOURCE_EXHAUSTED/.test(msg)) {
       breakerUntil = Date.now() + 5 * 60_000;
       throw e;
@@ -239,7 +239,10 @@ export async function reviewContent(o: {
     const toneBlock = tonePass
       ? `\nTONE RULES:\n${toneRules.map((r) => `${r.code}: ${r.description}`).join("\n")}\n<content>\n${content}\n</content>`
       : "";
-    const judged = await call(judgeSystem(tonePass), `<items>\n${lines.join("\n")}\n</items>${toneBlock}`, "judge");
+    const judged = (await call(judgeSystem(tonePass), `<items>\n${lines.join("\n")}\n</items>${toneBlock}`, "judge")) as {
+      items?: Array<{ id: number; relation: string }>;
+      tone?: Array<{ rule_code: string; span_text: string; why: string }>;
+    } | null;
 
     const relation = new Map<number, string>();
     for (const it of Array.isArray(judged?.items) ? judged.items : [])
@@ -266,15 +269,19 @@ export async function reviewContent(o: {
     if (pending.length) {
       let agreed = new Set<number>();
       try {
-        const v = await call(
+        const v = (await call(
           VERIFIER_SYSTEM,
           pending.map((i) => {
             const fact = factById.get(items[i].fact_id!)!;
             return `[${i}] APPROVED FACT: "${fact.statement}" | CLAIM: "${items[i].span_text}"`;
           }).join("\n"),
           "verifier"
+        )) as { items?: Array<{ id: number; relation: string }> } | null;
+        agreed = new Set(
+          (Array.isArray(v?.items) ? v.items : [])
+            .filter((x: { id?: number; relation?: string }) => x?.relation === "contradicts" && typeof x?.id === "number")
+            .map((x: { id?: number; relation?: string }) => x.id as number)
         );
-        agreed = new Set((Array.isArray(v?.items) ? v.items : []).filter((x: any) => x?.relation === "contradicts").map((x: any) => x.id));
       } catch { /* verifier unavailable: findings stay grade C for a human */ }
       for (const i of pending) {
         const f = items[i], fact = factById.get(f.fact_id!)!;
@@ -303,7 +310,8 @@ export async function reviewContent(o: {
     const findings = [...det, ...off.map((f) => swap.get(f) ?? f), ...added].sort(bySpan);
     await cache?.set(key, findings).catch(() => {});
     return { findings, route: "hybrid", llmCalls: calls, cached: false, rejected };
-  } catch (e: any) {
-    return degraded(String(e?.message ?? e).slice(0, 300));
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return degraded(msg.slice(0, 300));
   }
 }

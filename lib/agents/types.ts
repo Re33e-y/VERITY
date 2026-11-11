@@ -10,7 +10,57 @@ export interface Span {
   end: number;
 }
 export interface FocusSentence extends Span {
+  id?: string;
   text: string;
+  context?: string;
+  extracted_claim?: string;
+}
+
+// Structured specialist verdict
+export type SpecialistVerdict =
+  | "supported"
+  | "unsupported"
+  | "contradicted"
+  | "compliant"
+  | "non_compliant"
+  | "insufficient_evidence"
+  | "no_issue";
+
+export interface SpecialistEvaluation {
+  claim_id: string;
+  agent_name: SpecialistKind;
+  verdict: SpecialistVerdict;
+  confidence: number;
+  evidence: Citation[];
+  evidence_quote?: string;
+  reasoning_summary: string;
+  recommended_action: "keep" | "flag" | "remedy" | "escalate" | "dismiss";
+  requires_human_review: boolean;
+  quote?: string;
+  replacement?: string | null;
+}
+
+export type ConsensusStatus =
+  | "consensus_reached"
+  | "no_findings_to_review"
+  | "disagreement"
+  | "incomplete_review"
+  | "model_failure";
+
+export interface CriticVerdictItem {
+  id: string;
+  verdict: "keep" | "dismiss" | "downgrade" | "needs_evidence";
+  reason: string;
+  recheck: string | null;
+  replacement: string | null;
+}
+
+export interface CriticConsensus {
+  status: ConsensusStatus;
+  verdicts: CriticVerdictItem[];
+  agreed_count: number;
+  disagreed_count: number;
+  summary: string;
 }
 
 // ---- Brand Canon (as the agents see it; map your DB rows in adapters.ts) ----
@@ -21,21 +71,89 @@ export interface CanonRule {
   /** Approved replacement term/phrase, if the rule has one (banned term -> approved term). */
   replacement?: string | null;
 }
+// Product Entity and Relationship definitions for Entity-Aware Governance
+export interface ProductEntity {
+  name: string;
+  aliases?: string[];
+  tier?: string;
+  parent?: string;
+  description?: string;
+}
+
+export interface EntityRelationship {
+  source: string;
+  target: string;
+  type: "alias" | "tier" | "feature_of" | "umbrella_brand";
+}
+
+export type EntityRelationStatus =
+  | "exact_match"
+  | "approved_alias"
+  | "different_product"
+  | "ambiguous"
+  | "unknown";
+
+export interface EntityResolutionResult {
+  claimEntity: string | null;
+  factEntity: string | null;
+  status: EntityRelationStatus;
+  explanation: string;
+}
+
 export interface CanonFact {
   id: string;
   text: string;
   keywords?: string[];
   valid_until?: string | null;
+  entity?: string;
 }
 export interface Canon {
   version: string;
   rules: CanonRule[];
   facts: CanonFact[];
+  entities?: ProductEntity[];
+  relationships?: EntityRelationship[];
 }
 
 export interface Citation {
   type: "rule" | "fact";
   id: string;
+}
+
+// Specialist enrichment metadata attached when specialist findings overlap existing deterministic findings
+export interface SpecialistEnrichment {
+  agent: string;
+  category: string;
+  verdict?: string | null;
+  confidence?: number;
+  citations: Citation[];
+  reasoning: string;
+  legal_interpretation?: string;
+  requires_human_review?: boolean;
+  suggested_fix?: string | null;
+}
+
+// Complete lifecycle tracking: Specialist -> First guard -> Critic -> Second guard -> Final finding
+export interface FindingLifecycle {
+  specialist?: {
+    agent: string;
+    verdict?: string | null;
+    confidence?: number;
+    reasoning?: string;
+    citations?: Citation[];
+  };
+  first_guard?: {
+    action: "kept" | "enriched" | "refined" | "dropped";
+    detail: string;
+  };
+  critic?: {
+    verdict: "keep" | "dismiss" | "downgrade" | "needs_evidence";
+    reason: string;
+  };
+  second_guard?: {
+    action: "accepted" | "overruled" | "downgraded" | "suppressed";
+    detail: string;
+  };
 }
 
 // ---- Remediation ----
@@ -49,12 +167,16 @@ export interface Patch {
   /** True only if the offline engine no longer flags the patched span. */
   verified: boolean;
   verification: string;
+  status?: "verified" | "rejected" | "proposed";
+  failed_reason?: string;
+  attempts?: number;
 }
 
 // ---- Findings ----
 export interface Finding extends Span {
   /** In-flight id. Your persistence layer should keep assigning real UUIDs. */
   id: string;
+  claim_id?: string;
   quote: string;
   category: string;
   grade: Grade;
@@ -68,12 +190,34 @@ export interface Finding extends Span {
   patch?: Patch;
   /** Internal: replacement proposed by an agent, consumed by remediation, stripped before returning. */
   draftFix?: string | null;
+  verdict?: string | null;
+  reasoning_summary?: string;
+  legal_interpretation?: string;
+  requires_human_review?: boolean;
+  severity?: Severity;
+  enrichments?: SpecialistEnrichment[];
+  lifecycle?: FindingLifecycle;
+  entity_resolution?: EntityResolutionResult;
+}
+
+export interface SuppressedFindingDetail {
+  id: string;
+  quote: string;
+  category: string;
+  source: string;
+  critic_verdict: string;
+  critic_explanation: string;
+  second_guard_explanation: string;
 }
 
 export interface Suppressed {
   finding: Finding;
   reason: string;
-  by: "critic";
+  by: "critic" | "second_guard";
+  critic_verdict?: "dismiss" | "downgrade";
+  critic_explanation?: string;
+  second_guard_explanation?: string;
+  lifecycle?: FindingLifecycle;
 }
 
 export type OfflineFn = (text: string, canon: Canon) => Finding[] | Promise<Finding[]>;
@@ -100,6 +244,14 @@ export interface TraceStep {
   calls: number;
   ms: number;
   detail: string;
+  claim?: string;
+  verdict?: string;
+  confidence?: number;
+  evidence?: string;
+  reasoning?: string;
+  guard_status?: "accepted" | "rejected" | "overruled" | "deduplicated";
+  critic_result?: string;
+  remediation_verification?: string;
 }
 
 // ---- Verity 2.0 governance report ----
@@ -123,6 +275,8 @@ export interface GovernedFinding {
   requires_human_review: boolean;
   review_reasons: string[];
   has_verified_patch: boolean;
+  enrichments?: SpecialistEnrichment[];
+  lifecycle?: FindingLifecycle;
 }
 
 export interface AgentActivity {
@@ -140,6 +294,7 @@ export interface Disagreement {
   stance: "dismiss" | "downgrade";
   reason: string;
   resolution: string;
+  critic_explanation?: string;
 }
 
 export interface Governance {
@@ -157,6 +312,8 @@ export interface Governance {
   agents: AgentActivity[];
   findings: GovernedFinding[];
   disagreements: Disagreement[];
+  consensus?: CriticConsensus;
+  suppressed_details?: SuppressedFindingDetail[];
 }
 
 export interface AgenticResult {
@@ -171,6 +328,10 @@ export interface AgenticResult {
   plan: Plan;
   trace: TraceStep[];
   governance: Governance;
+  pipeline_version?: string;
+  config_version?: string;
+  schema_version?: string;
+  canon_digest?: string;
 }
 
 export interface CacheAdapter {
