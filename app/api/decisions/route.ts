@@ -23,10 +23,12 @@ export async function POST(req: Request) {
     )
   }
 
+  const workspaceHeader = req.headers.get("x-workspace-id")
+
   try {
     const { data: finding, error: findingError } = await supabase
       .from("findings")
-      .select("id")
+      .select("id, review_run_id")
       .eq("id", findingId)
       .maybeSingle()
 
@@ -35,6 +37,22 @@ export async function POST(req: Request) {
     }
     if (!finding) {
       return NextResponse.json({ error: "Finding not found." }, { status: 404 })
+    }
+
+    // Server-side workspace access control
+    if (workspaceHeader && finding.review_run_id) {
+      const { data: run } = await supabase
+        .from("review_runs")
+        .select("workspace_id")
+        .eq("id", finding.review_run_id)
+        .maybeSingle()
+
+      if (run && run.workspace_id && run.workspace_id !== workspaceHeader) {
+        return NextResponse.json(
+          { error: "Access Denied: Finding belongs to a different private workspace." },
+          { status: 403 }
+        )
+      }
     }
 
     const { data, error } = await supabase

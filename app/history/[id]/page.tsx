@@ -54,10 +54,14 @@ function RunDetailError({ message }: { message: string }) {
 
 async function RunDetailContent({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams?: Promise<{ workspace?: string }>
 }) {
   const { id } = await params
+  const resolvedParams = searchParams ? await searchParams : undefined
+  const workspaceFilter = resolvedParams?.workspace
   if (!UUID_PATTERN.test(id)) notFound()
 
   const { data: run, error: runError } = await supabase
@@ -70,6 +74,15 @@ async function RunDetailContent({
     return <RunDetailError message={`Could not load review run: ${runError.message}`} />
   }
   if (!run) notFound()
+
+  // Enforce server-side workspace access control: prevent unauthorized cross-workspace inspection
+  if (workspaceFilter && UUID_PATTERN.test(workspaceFilter) && run.workspace_id && run.workspace_id !== workspaceFilter) {
+    return (
+      <RunDetailError
+        message="Access Denied: This review is confined to a private workspace. Server-side access controls prohibit cross-workspace inspection to keep submitted content secure."
+      />
+    )
+  }
 
   const { data: findingData, error: findingsError } = await supabase
     .from("findings")
@@ -247,7 +260,10 @@ async function RunDetailContent({
   )
 }
 
-export default function RunDetail({ params }: { params: Promise<{ id: string }> }) {
+export default function RunDetail(props: {
+  params: Promise<{ id: string }>
+  searchParams?: Promise<{ workspace?: string }>
+}) {
   return (
     <Suspense
       fallback={
@@ -258,7 +274,7 @@ export default function RunDetail({ params }: { params: Promise<{ id: string }> 
         </main>
       }
     >
-      <RunDetailContent params={params} />
+      <RunDetailContent params={props.params} searchParams={props.searchParams} />
     </Suspense>
   )
 }

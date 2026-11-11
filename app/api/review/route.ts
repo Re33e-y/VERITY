@@ -195,6 +195,14 @@ export async function POST(req: Request) {
       ? body.content.trim()
       : ""
 
+  const workspaceId =
+    typeof body === "object" &&
+    body !== null &&
+    "workspace_id" in body &&
+    typeof (body as Record<string, unknown>).workspace_id === "string"
+      ? ((body as Record<string, unknown>).workspace_id as string).trim()
+      : req.headers.get("x-workspace-id") || null
+
   if (!content) {
     return NextResponse.json(
       { error: "content is required" },
@@ -368,6 +376,7 @@ export async function POST(req: Request) {
       providers_used: fallback.used(),
       ai_status: aiStatus,
       findings: identifiedFindings,
+      workspace_id: workspaceId || "00000000-0000-0000-0000-000000000001",
       ...(agenticResult
         ? {
             agents: {
@@ -388,6 +397,7 @@ export async function POST(req: Request) {
         canon_version: canonVersion,
         content_hash: snapshot.content_hash,
         snapshot,
+        ...(workspaceId ? { workspace_id: workspaceId } : {}),
       })
       .select("id")
       .single()
@@ -449,7 +459,7 @@ export async function POST(req: Request) {
       route: result.route,
       llmCalls: result.llmCalls,
       cached: result.cached,
-      providers_used: fallback.used(),
+      providers_used: agenticResult?.providers_used?.length ? agenticResult.providers_used : fallback.used(),
       findings: visibleFindings.sort(
         (left, right) => (left.span_start ?? 0) - (right.span_start ?? 0)
       ),

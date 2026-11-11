@@ -80,12 +80,23 @@ function HistoryError({ title, message }: { title: string; message: string }) {
   )
 }
 
-async function HistoryContent() {
-  const { data: runData, error: runsError } = await supabase
+async function HistoryContent(props: {
+  searchParams?: Promise<{ workspace?: string }>
+}) {
+  const searchParams = props.searchParams ? await props.searchParams : {}
+  const workspaceId = searchParams.workspace
+
+  let query = supabase
     .from("review_runs")
     .select("id, created_at, score, status, target_content, snapshot")
     .order("created_at", { ascending: false })
     .limit(100)
+
+  if (workspaceId) {
+    query = query.eq("workspace_id", workspaceId)
+  }
+
+  const { data: runData, error: runsError } = await query
 
   if (runsError) {
     return <HistoryError title="Review history" message={runsError.message} />
@@ -262,7 +273,9 @@ async function HistoryContent() {
   )
 }
 
-export default function HistoryPage() {
+export default function HistoryPage(props: {
+  searchParams?: Promise<{ workspace?: string }>
+}) {
   return (
     <Suspense
       fallback={
@@ -273,7 +286,7 @@ export default function HistoryPage() {
         </main>
       }
     >
-      <HistoryContent />
+      <HistoryContent searchParams={props.searchParams} />
     </Suspense>
   )
 }

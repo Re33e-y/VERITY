@@ -1734,4 +1734,105 @@ const aId = (txt: string, q: string, cat: string) =>
   resetProvidersUsed();
 }
 
-console.log("\n--- All 24 Verity Agentic Verification Tests PASSED! ---");
+// 25. Multi-provider fallback: Gemini 500 & OpenRouter 500 fail over to Cloudflare AI
+{
+  process.env.OPENROUTER_API_KEY = "test-openrouter-key";
+  process.env.OPENROUTER_MODEL = "test-model";
+  process.env.CLOUDFLARE_ACCOUNT_ID = "test-cf-account";
+  process.env.CLOUDFLARE_API_TOKEN = "test-cf-token";
+  const { resetQuotaCircuit, resetProvidersUsed, getProvidersUsed } = await import("../lib/agents/llm");
+  resetQuotaCircuit();
+  resetProvidersUsed();
+
+  let geminiCalls = 0;
+  let openRouterCalls = 0;
+  let cloudflareCalls = 0;
+
+  customHandler = async (url: unknown, _init: { body: string }) => {
+    const urlStr = String(url);
+    if (urlStr.includes("generativelanguage.googleapis.com")) {
+      geminiCalls++;
+      return new Response(JSON.stringify({ error: { message: "Gemini 500 Internal Error" } }), { status: 500 });
+    }
+    if (urlStr.includes("openrouter.ai")) {
+      openRouterCalls++;
+      return new Response(JSON.stringify({ error: { message: "OpenRouter 502 Bad Gateway" } }), { status: 502 });
+    }
+    if (urlStr.includes("api.cloudflare.com")) {
+      cloudflareCalls++;
+      return new Response(JSON.stringify({
+        result: {
+          response: JSON.stringify({
+            status: "consensus_reached",
+            verdicts: [],
+            summary: "Cloudflare critic consensus reached",
+          })
+        }
+      }), { status: 200 });
+    }
+    return new Response("Not found", { status: 404 });
+  };
+
+  const res25 = await runAgenticReview({
+    ...base,
+    text: "Verification Bot runs on Cloudflare edge.",
+    ambiguous: [{ start: 0, end: 40 }],
+  });
+
+  assert.ok(geminiCalls > 0, "Gemini attempted first");
+  assert.ok(openRouterCalls > 0, "OpenRouter attempted second");
+  assert.ok(cloudflareCalls > 0, "Cloudflare called and succeeded as final fallback");
+  assert.equal(res25.status, "agentic", "Status remained agentic through Cloudflare");
+  assert.ok(res25.providers_used?.includes("cloudflare"), "Trace recorded cloudflare in providers_used");
+  console.log("ok 25. Multi-provider fallback: Gemini 500 & OpenRouter 502 fail over to Cloudflare AI successfully");
+
+  // Cleanup
+  delete process.env.OPENROUTER_API_KEY;
+  delete process.env.OPENROUTER_MODEL;
+  delete process.env.CLOUDFLARE_ACCOUNT_ID;
+  delete process.env.CLOUDFLARE_API_TOKEN;
+  customHandler = null;
+  resetQuotaCircuit();
+  resetProvidersUsed();
+}
+
+// 26. All providers unavailable -> clearly disclosed degraded/offline result with ai_unavailable=true
+{
+  process.env.OPENROUTER_API_KEY = "test-openrouter-key";
+  process.env.OPENROUTER_MODEL = "test-model";
+  const { resetQuotaCircuit, resetProvidersUsed } = await import("../lib/agents/llm");
+  resetQuotaCircuit();
+  resetProvidersUsed();
+
+  customHandler = async (url: unknown, _init: { body: string }) => {
+    const urlStr = String(url);
+    if (urlStr.includes("generativelanguage.googleapis.com")) {
+      return new Response(JSON.stringify({ error: { message: "Gemini 503 Service Unavailable" } }), { status: 503 });
+    }
+    if (urlStr.includes("openrouter.ai")) {
+      return new Response(JSON.stringify({ error: { message: "OpenRouter 503 Service Unavailable" } }), { status: 503 });
+    }
+    return new Response("Not found", { status: 404 });
+  };
+
+  const res26 = await runAgenticReview({
+    ...base,
+    text: "Our platform guarantees 100% uptime with zero latency.",
+    ambiguous: [{ start: 0, end: 55 }],
+  });
+
+  assert.equal(res26.status, "degraded", "Status degraded gracefully when all providers fail");
+  assert.equal(res26.ai_unavailable, true, "AI unavailable flag set accurately");
+  assert.ok(res26.findings.length > 0, "Offline rule-based findings preserved safely");
+  assert.ok(res26.findings.every(f => f.notes?.some(n => n.includes("offline")) || f.source === "offline"), "Findings labeled as offline");
+  console.log("ok 26. Complete provider outage: Gracefully degrades to labeled offline findings with ai_unavailable=true");
+
+  // Cleanup
+  delete process.env.OPENROUTER_API_KEY;
+  delete process.env.OPENROUTER_MODEL;
+  customHandler = null;
+  resetQuotaCircuit();
+  resetProvidersUsed();
+}
+
+console.log("\n--- All 26 Verity Agentic Verification Tests PASSED! ---");

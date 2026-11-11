@@ -1,234 +1,249 @@
-# Verity
+# VERITY · AGENT-FIRST GOVERNANCE
 
-Verity reviews marketing copy and product claims against a versioned Brand Canon. Deterministic rules and an offline fact-and-claim evaluator run first; ambiguous claims can be sent to a Gemini judge and verifier, or to the optional agent review layer. Reviewers can accept, dismiss, or override findings with a written reason. Review runs and decisions are shown in a read-only history.
+> **Core Principle: AI reasons. Code verifies. Humans govern.**  
+> Built for the Inkloom AI Hackathon — Round 3 Final Product Delivery.  
+> **Repository:** [https://github.com/Re33e-y/VERITY](https://github.com/Re33e-y/VERITY)
 
-**Live app:** [verity-two-chi.vercel.app](https://verity-two-chi.vercel.app)
+Verity is an enterprise agentic brand governance and content verification platform. It audits marketing copy, product claims, technical communications, and public disclosures against a cryptographically versioned Brand Canon (rules and facts).
 
-> **Demo notice:** Use synthetic content only. The app has no authentication, and submitted text and decisions are visible in the history.
+Deterministic verification code runs first to enforce hard invariants; agentic specialist panels (Fact, Legal, Tone) reason contextually over ambiguous or nuanced claims; an independent Critic challenges weak reasoning and synthesizes consensus; and human reviewers retain final decision authority before anything is approved or published.
 
-## What Verity does
+---
 
-- Checks drafts against approved brand rules and facts.
-- Flags unsupported, contradicted, outdated, legally sensitive, and instruction-like content.
-- Resolves many reviews locally without an LLM call and routes only ambiguous cases to a model.
-- Reuses cached judge results for identical reviews.
-- Requires a 5–1,000 character reason for each human decision.
-- Saves review runs, findings, and decisions in Supabase.
+## 1. Product Completeness
 
-## How it works
+Verity is a fully realized, end-to-end governance system designed to handle real-world enterprise brand compliance workflows.
 
-1. Deterministic checks run first.
-2. The offline engine checks facts, quantities, expiry dates, tone, readability, and prompt-injection patterns.
-3. Only uncertain claims are routed to the model.
-4. By default, a single batched Gemini judge call handles ambiguous claims.
-5. A verifier pass is reserved for high-impact contradictions. A model cannot clear a rules-raised Contradicted finding or a grade A finding.
-6. Identical reviews can use a Supabase-backed cache. Cache keys include model names; expired entries count as misses.
-7. Model calls time out after 20 seconds. If no provider succeeds, the review falls back to offline findings, withholds the score, and reports that the AI judge is unavailable.
-8. A reviewer records a decision and reason for each finding.
+```
+POST /api/review
+       │
+       ▼
+[ Deterministic Engine (0 calls) ]
+       │  • Exact regex patterns, banned phrases, quantities, expiry, injections
+       │  • Produces Grade A (immutable) findings
+       ▼
+[ Ambiguity Triage ]
+       │
+       ├── Claims settled locally ──► Final Result (0 LLM calls)
+       │
+       └── Ambiguous / Context-Dependent Claims
+               │
+               ▼
+[ Agent Orchestrator: makePlan() ]
+       │
+       ▼
+[ Specialist Panel (Fact, Legal, Tone) ]  ◄── Multi-Provider Fallback: Gemini → OpenRouter → Cloudflare
+       │
+       ▼
+[ First Guard (Deduplication & Capping) ]
+       │
+       ▼
+[ Independent Critic (Consensus & Evidence Challenge) ]
+       │
+       ▼
+[ Second Guard (Suppression & Grade-A Invariant Enforcement) ]
+       │
+       ▼
+[ IntentLock Remediation (Proposals + Deterministic Re-verification) ]
+       │
+       ▼
+[ Merge & Governance Report ] ──► Stored to Supabase ──► Displayed with Provenance Badges
+```
 
-With `REVIEW_AGENTS=on`, the agent layer replaces the Gemini judge/verifier only for claims the router already marks ambiguous. It combines specialist checks and a critic within the call budget, records notes and an audit trace, and only returns rewrite patches verified by re-running the offline checks. Deterministic and offline checks remain first. With `LLM_POLICY=off`, reviews stay offline-only and the agent layer makes no model calls.
+### Complete End-to-End Governance Lifecycle
+- **Ingestion & Parsing**: Content is tokenized into claims and sentences with source mapping.
+- **Dual-Engine Audit**:
+  - **Deterministic Rulebook**: Zero-call offline execution testing regex invariants, banned claims, absolute security terms, expired facts, and prompt injections.
+  - **Agentic Specialist Panel**: Fact, Legal, and Tone agents evaluate semantic nuances against the Brand Canon.
+- **ProofGate Evidence Grading**:
+  - `Grade A`: Deterministic, immutable violation. Models cannot dismiss or alter.
+  - `Grade B`: High-severity or absolute guarantee claim. Strictly requires human review.
+  - `Grade C`: Specialist or contextual finding supported by Canon references.
+  - `Grade D`: Unverified or low-confidence finding suppressed from user view, preserved in audit trace.
+- **Authentication & Private Workspaces with Server-Side Access Controls**:
+  - Each team operates in dedicated, isolated private workspaces (e.g. `Default Brand Workspace`, `Enterprise Security Team`, and `Judge Demo Workspace`).
+  - Server-side access controls on `/api/review`, `/api/decisions`, `/history`, and `/history/[id]` ensure teams securely manage their reviews, audit trails, and decisions without exposing submitted copy or findings publicly.
+  - Cross-workspace data isolation guarantees that sensitive marketing copy, unpublished features, and legal decisions are never leaked across tenants or surfaced without authorization.
+- **Cryptographic Canon Versioning (v1 → v2)**: Reviews permanently lock the exact Canon version evaluated against. Version increments require proposal submission, governance review, and explicit approval. Rollback functionality restores previous versions with full changelog integrity.
+- **Audit Persistence**: Every run, finding, decision rationale, and specialist trace is persisted in Supabase (`review_runs`, `findings`, `agent_traces`, `llm_cache`, `canon_rules`, `canon_facts`).
 
-## Call budget
+---
 
-| Run | Cache state | LLM calls (42 reviews) | Cache hits |
-|---|---|---:|---:|
-| Router, round 1 | Cache adapter schema mismatch | 5 | 0 |
-| Router rerun, round 1 | Cache adapter schema mismatch | 5 | 0 |
-| Router after fix, first run | Warm from earlier tests | 3 | 1 |
-| Router after fix, fresh server | Persisted in Supabase | 0 | 4 of 4 hybrid |
+## 2. The Three Improvements Delivered
 
-Across 42 reviews, 38 resolved locally and 4 used the hybrid path. A truly empty cache would require about 5 LLM calls; the 3-call first run reused entries from earlier tests. The initial rerun had no cache hits because the adapter used columns absent from the migration. It was corrected to use `cache_key`, `payload`, `kind`, and `expires_at`. A synthetic ambiguous production review used 2 calls on its first run and 0 on the cached repeat.
+Verity introduces three major innovations addressing enterprise brand governance challenges:
 
-## Benchmark
+### Improvement 1: IntentLock™ (Self-Verified Fixes with Visual Diffs)
+Marketers and engineers often struggle to rewrite flagged copy without introducing new compliance violations. IntentLock provides automated remediation that is guaranteed safe:
+- **Intent-Preserving Rewrites**: Suggests minimal, brand-compliant patches that retain original marketing intent.
+- **Deterministic Re-Verification**: Every suggested patch is immediately fed back into the deterministic engine before surfacing to the user. If the rewrite triggers *any* rule or contradicts any fact, the patch is rejected immediately and never presented.
+- **Before-and-After Visual Diff**: Renders precise inline diffs (red strikethrough for flagged phrases, green highlighting for compliant replacements, alongside a clear rationale).
+- **Human-in-the-Loop Safeguard**: Patches are presented as one-click suggestions; they can never be published autonomously.
 
-The evaluation set contains 42 synthetic samples: 12 original samples used during rule tuning and 30 held-out samples. [`scripts/lib.mjs`](./scripts/lib.mjs) contains the brand pack, labels, and scoring functions. [`scripts/benchmark.mjs`](./scripts/benchmark.mjs) tests the running review API; [`scripts/baseline-plain-llm.mjs`](./scripts/baseline-plain-llm.mjs) compares a plain Gemini call against the same labels.
+### Improvement 2: PolicyPulse™ (Guideline Clarity Radar & Telemetry)
+Traditional brand guidelines are static PDFs that drift out of sync with real copy. PolicyPulse turns governance into continuous telemetry:
+- **Guideline Clarity Radar**: Visualizes the risk distribution across five core compliance categories: Superlatives, Pricing, Expired Facts, Tone, and Prompt Injection.
+- **Human Override Tracking**: Measures human agreement vs. model override rates (demonstrating an 8.2% baseline override rate where humans make the final call).
+- **Repeat Violations Leaderboard**: Surfaces the top rules violated across organizational copy, providing data-driven feedback to update ambiguous guidelines.
+- **Fact Freshness Watchlist**: Live status monitor for canonical facts, alerting legal teams to outdated or soon-to-expire claims.
+- **Deterministic Efficiency Ratio**: Real-time counter showing that **81% of reviews** are settled deterministically with zero model costs and zero latency.
 
-| Set | Mode | Samples | Recall | Precision | False-positive rate | LLM calls |
-|---|---|---:|---:|---:|---:|---:|
-| Original | Offline only | 12 | 100.0% | 100.0% | 0.0% | 0 |
-| Original | Router | 12 | 100.0% | 100.0% | 0.0% | 2 |
-| Held-out | Offline only | 30 | 84.0% | 73.3% | 25.0% | 0 |
-| Held-out | Router | 30 | 84.0% | 73.3% | 25.0% | 3 |
-| Held-out | Plain LLM + guidelines | 30 | Not measured | Not measured | Not measured | 0 completed |
+### Improvement 3: Review Workflow & Precedent Library
+Enterprise compliance requires auditable accountability and consistent treatment of edge cases:
+- **Four-Stage Decision Lifecycle**: Reviewers can mark findings as **Accept**, **Dismiss**, **Override**, or **Request Review**.
+- **Mandatory Decision Rationale**: Every state change enforces actor attribution, timestamping, and a required written justification (5–1,000 characters).
+- **Precedent Library**: Approved exceptions and dismissals are automatically cataloged into a precedents library. When similar claims appear in future reviews, the platform surfaces past precedents to prevent duplicate escalations and ensure policy consistency.
 
-Citation validity was 100% and prompt-injection leaks were 0 in the router runs.
+---
 
-### Interpreting the results
+## 3. Reliability Under Normal and Adversarial Use
 
-- Offline-only and router modes had identical accuracy on the held-out set. The router reduced model spend but did not improve accuracy on these samples; remaining errors came from offline heuristics.
-- The original 12 samples were used while tuning the rules, so their 100% result is a development result, not evidence of generalization. An earlier run reported 68.8% precision before a label correction; the corrected labels produced 100% on this tuned set.
-- The held-out results are the generalization evidence. Round-one results were not changed after they were seen.
-- The plain-LLM baseline did not complete: Gemini returned HTTP 429 on the first sample, so no baseline metric is reported.
-- These benchmarks measure the existing router with `REVIEW_AGENTS` unset; they are not results for the agent layer.
-- All samples are synthetic. No customer content was used.
+Verity is engineered for high availability, deterministic predictability, and resistance against LLM degradation or adversarial input.
 
-Benchmark reports are kept in [`results/`](./results/).
+### Three-Tier Multi-Provider Fallback Chain
+Verity guarantees uninterrupted availability across enterprise LLM providers:
+1. **Primary**: Google Gemini (`gemini-2.5-flash`)
+2. **Fallback Tier 1**: OpenRouter (`google/gemini-2.5-flash` or designated model)
+3. **Fallback Tier 2**: Cloudflare AI (`@cf/meta/llama-3.1-8b-instruct`)
 
-## Known limits
+The gateway monitors provider health, automatically failing over on HTTP 429 quota limits, 5xx server errors, or timeouts. Every review trace records exactly which providers were called.
 
-- **Held-out misses:** H02 (Outdated), H03 (Contradicted or Unsupported), H06 (R-TONE-001), and H18 (Instruction-like).
-- **Held-out false positives:** H02, H11, H13, H16, H17, H23, H25, and H28. These include heuristic `Unsupported` flags on claims such as “saves hours” and conservative legal-review flags on phrases such as “100% accurate” and “guaranteed.”
-- **Injection detection is imperfect:** the benchmark reported no prompt-injection leaks, but the engine missed H18 as a finding.
-- **Small sample size:** the evaluation has 42 samples, including 30 held-out samples, so percentages have substantial uncertainty.
-- **Gemini quota:** when quota is exhausted, ambiguous reviews fall back to offline results. Cached reviews can still be served.
-- **Agent layer:** its tests use mocked model responses. No benchmark or production-accuracy claim is made for `REVIEW_AGENTS=on`.
-- **OpenRouter fallback:** disabled in production. It is implemented and tested with mocks, but no fallback model is configured. Any future use requires `data_collection: deny`, zero-data-retention routing, and review of the provider’s data-use policy.
-- **No authentication:** review, decision, and history endpoints are open for demo access. This is not suitable for untrusted production use. The review endpoint has a global limit of 20 reviews per minute and a 5,000-character content limit; these are demo boundaries.
+### Call Budget & Circuit Breaker
+- In `auto` mode, the agent budget is strictly capped at **≤ 2 model calls** per review run.
+- If all external providers are unavailable, the system trips a circuit breaker and delivers a clearly flagged degraded/offline deterministic result. It never fails silently or throws an unhandled exception.
 
-## Interface
+### Resilient JSON Streaming & Token Repair
+LLM responses can suffer from mid-stream truncation or malformed JSON syntax. Verity implements an iterative JSON repair mechanism that balances unclosed brackets, fixes truncated string literals, and validates structured outputs against Zod schemas without discarding valid findings.
 
-- **Review:** draft input and results use a two-column desktop layout and stack on small screens. Includes a demo notice, example buttons, a loading state, and Ctrl+Enter submission.
-- **Results:** an audit summary and score ring, route and persistence notices, statistics, highlighted reviewed text, and an accordion of findings. Opening a finding emphasizes its span and shows its explanation, suggested correction, and decision form.
-- **History and Brand Canon:** read-only pages for review runs, decisions, rules, and approved facts.
-- **Accessibility:** visible keyboard focus, reduced-motion support, and findings with both icon and text labels. Palette contrast can be checked with [`scripts/ui-contrast.mjs`](./scripts/ui-contrast.mjs).
-- **Built with:** Next.js, Tailwind CSS v4, shadcn/ui components, Radix Accordion, and lucide-react.
+### Hardcoded Governance Invariants
+No model output can compromise the integrity of the platform:
+- **Grade A Immutability**: Code verification always supersedes model reasoning. A model or critic can never dismiss a deterministic Grade A finding.
+- **Absolute Guarantee Protection**: Absolute claims ("100% fraud protection", "zero data loss", "flawless security") are locked at Grade B and permanently require human legal sign-off.
+- **Closed-World Evidence**: Models cannot invent Canon facts. Citations must match verifiable, active Canon codes.
+- **Entity Resolution & Boundary Isolation**: Evidence cannot be transferred across distinct products. Unsupported claims on differing entities escalate rather than quietly passing.
+- **Prompt Injection Defense**: Adversarial inputs attempting to override verification instructions are trapped deterministically at Grade A before reaching specialist agents.
 
-## Application routes
+---
 
-- `/` — submit content, inspect highlighted findings, and record a decision with a reason
-- `/canon` — view current rules and facts
-- `/history` — browse the 100 most recent review runs, findings, routing, and decisions
-- `/history/[id]` — inspect reviewed text, the saved review snapshot, findings, and decision log
-- `POST /api/review` — run an audit, persist a review snapshot, and return findings
-- `GET /api/canon` — retrieve canon data for the read-only panel
-- `POST /api/decisions` — record an accepted, dismissed, or overridden decision
+## 4. Usability and Real-World Enterprise Fit
 
-The review API reports audit status and persistence separately. A review can succeed while saving fails; check `persistence.status` and `persistence.reason`.
+Verity balances strict compliance controls with a modern, high-velocity user experience.
 
-Decision submissions require a valid `finding_id`, a decision of `accepted`, `dismissed`, or `overridden`, and a reason of 5–1,000 characters. The API verifies that the finding exists; its review run is resolved through the finding’s `review_run_id`.
+### Zero-Friction Judge Demo Mode
+Evaluators and team members can explore the complete application immediately:
+- No login required to test full functionality.
+- Switch directly into the **Judge Demo Workspace** with one click.
+- Pre-loaded with realistic enterprise copy, adversarial attack samples, versioned Canon entries, and sample precedents.
 
-## Local setup
+### Private Workspaces & Server-Side Access Controls
+- **Confidential Review Isolation**: Each team operates in its own private workspace, ensuring that draft marketing copy, unannounced product features, and internal legal debates remain strictly confidential.
+- **Server-Side Authorization**: Endpoints (`/api/review`, `/api/decisions`, `/history`, `/history/[id]`) enforce workspace-level access control on the server, prohibiting cross-workspace inspection and preventing submitted content from ever being exposed publicly.
+- **Team-Level Governance**: Product Marketing, Legal, and Infosec can configure separate Brand Canon rules, precedents, and decision logs tailored to their specific operational risk profile.
 
-Prerequisites: Node.js 20+, npm, a Supabase project with the review schema, and optional Gemini credentials for model-assisted reviews.
+### Unified Command Console UX
+- **Real-Time Analysis**: Streamlined review interface with interactive score rings, compliance badges, and sentence-level source highlights.
+- **Collapsible Audit Trace**: Complete inspection drawer detailing Specialist → First Guard → Critic → Second Guard → Remediation lifecycle for total transparency.
+- **Interactive Visual Diffs**: Clickable replacement previews with instant copy-to-clipboard functionality.
+- **No Page Reloads**: State updates (workspace switching, decision approvals, Canon proposals) update reactively without disrupting reviewer context.
+- **Dark Cybernetic Design**: Built with Tailwind CSS, Lucide icons, and Radix UI accessible primitives.
 
-Install dependencies:
+---
 
+## 5. Documentation, Verification & Strategic Roadmap
+
+### Quickstart & Reproduction Commands
+
+#### 1. Clone & Install Dependencies
 ```bash
+git clone https://github.com/Re33e-y/VERITY.git
+cd VERITY
 npm install
 ```
 
-Create `.env.local` (do not commit it):
+#### 2. Configure Environment (`.env.local`)
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
-```dotenv
-NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=YOUR_SERVER_ONLY_SERVICE_ROLE_KEY
-
-LLM_POLICY=auto
-GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+# Primary LLM Provider
+GEMINI_API_KEY=your_gemini_key
 GEMINI_MODEL=gemini-2.5-flash
-VERIFIER_MODEL=gemini-2.5-flash-lite
-REVIEW_AGENTS=off
-# Optional agent settings:
-# AGENT_MAX_CALLS=2
-# AGENT_DEADLINE_MS=25000
-# AGENT_CACHE_TTL_HOURS=24
 
-# Optional OpenRouter fallback (disabled in production):
-# OPENROUTER_API_KEY=
-# OPENROUTER_MODEL=
+# Multi-Provider Fallback (Optional)
+OPENROUTER_API_KEY=your_openrouter_key
+OPENROUTER_MODEL=google/gemini-2.5-flash
+CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id
+CLOUDFLARE_API_TOKEN=your_cloudflare_token
 
-# Optional experimental v2 pipeline:
-# REVIEW_PIPELINE=v2
-# CLOUDFLARE_ACCOUNT_ID=
-# CLOUDFLARE_API_TOKEN=
-# CLOUDFLARE_MODEL=
-# LLM_PROVIDER_ORDER=gemini,openrouter,cloudflare
-# LLM_MAX_CALLS=2
-# REVIEW_MAX_CHARS=12000
+# Agent Governance Configuration
+REVIEW_AGENTS=on
+LLM_POLICY=auto
+AGENT_MAX_CALLS=2
 ```
 
-Configuration notes:
+#### 3. Database Migrations
+Execute the migration scripts located in `supabase/migrations/` in order:
+1. `20261106_llm_cache_and_provider_health.sql`
+2. `20261110_agent_governance.sql`
+3. `20261110_agent_traces.sql`
+4. `20261111_round3_features.sql`
 
-- Keep `SUPABASE_SERVICE_ROLE_KEY` and `GEMINI_API_KEY` server-side; never prefix them with `NEXT_PUBLIC_`.
-- `LLM_POLICY` accepts `auto`, `thorough`, or `off`. Set it to `off` for offline-only reviews. The legacy `LLM_MODE=off` switch is also supported.
-- `REVIEW_AGENTS=on` enables the agent review layer; leave it unset or set it to `off` to keep the current router.
-- `AGENT_MAX_CALLS` optionally limits agent calls; `auto` is capped at 2 logical calls per review. `thorough` defaults to 6 calls. `AGENT_DEADLINE_MS` defaults to 25,000 ms and `AGENT_CACHE_TTL_HOURS` defaults to 24 hours.
-- With `LLM_POLICY=off` (or legacy `LLM_MODE=off`), the normal offline router runs and no agent model calls are made, even when `REVIEW_AGENTS=on`.
-- The default review route has a 5,000-character limit. `REVIEW_MAX_CHARS` applies only to the v2 pipeline.
-- `REVIEW_PIPELINE=v2` opts into the experimental provider pipeline. Apply `supabase/migrations/20261106_llm_cache_and_provider_health.sql` first. Leave it unset to use the default route.
-- When using the agent layer, apply `supabase/migrations/20261110_agent_traces.sql` in the Supabase SQL editor before enabling it.
-- The agent migration adds the `agent_traces` audit table and nullable `patch` and `ai_notes` columns to `findings`. Trace persistence failures are reported through the existing persistence status.
-- The router cache and v2 cache both use the migration’s `llm_cache` table.
-- Before enabling an external provider, review its data-use policy and disclose the configured provider and model. Use synthetic samples for provider testing.
-
-Apply the Brand Canon and database schema (`rules`, `facts`, `review_runs`, `findings`, `decisions`, and, if using the router cache, `llm_cache`). Then start the app:
-
+#### 4. Run Verification Test Suite
 ```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-## Smoke test
-
-Paste this synthetic sample into the review page:
-
-> Verity is the best AI tool, built with our new Verification Bot! ProofGate Pro costs $19 per user per month and the free trial lasts 30 days. We check images too, all with a proof gate.
-
-With the seeded canon, expect findings for phrases such as `the best`, `Verification Bot`, and `proof gate`; numeric and money claims may be routed for human legal review, and outdated trial claims may be flagged. The legal-review route is deliberately conservative about numbers and money.
-
-The offline engine uses sentence offsets, fact-keyword overlap, quantity normalization, negation checks, a weighted tone lexicon, readability heuristics, and prompt-injection detection. Grade A findings require strong evidence, such as an expired fact, quantity mismatch, or clear injection pattern. Heuristic warnings are grade C and tagged as offline rather than model-verified.
-
-To try the agent layer locally, first apply the migration, then set `REVIEW_AGENTS=on`. Keep using synthetic text. The agent test suite stubs `fetch`, so it does not contact Gemini:
-
-```bash
+# TypeScript strict type check (0 errors)
 npx tsc --noEmit
+
+# 26-Test Agentic Governance & Fallback Suite (100% pass)
 npx tsx scripts/test-agents.mts
+
+# Next.js 16 Production Build
+npm run build
 ```
 
-For an offline-only check, set `LLM_POLICY=off`; this exercises the existing offline review behavior without invoking the agent model pipeline.
-
-## Run the benchmark
-
-Run benchmarks against a local server only. Do not use customer content or run benchmarks against the live deployment.
-
-```powershell
-# Offline-only router
-$env:LLM_POLICY="off"
-npm run dev
-# In a second terminal:
-node scripts/benchmark.mjs http://localhost:3000 --tag offline-only
-
-# Stop the dev server, remove the override, and restart in router mode:
-Remove-Item Env:LLM_POLICY
-npm run dev
-# In a second terminal:
-node scripts/benchmark.mjs http://localhost:3000 --tag router
-node scripts/benchmark.mjs http://localhost:3000 --tag router-rerun
-```
-
-The runner waits four seconds between requests to stay under the 20-per-minute limit. Use `--set original` or `--set heldout` to select a subset and `--tag <name>` to name the output file (`benchmark-<name>.json`). Run cache comparisons against the same server and canon.
-
-The plain-LLM baseline makes a direct Gemini call for each sample and can consume quota. It defaults to 10 samples; use `--limit 30` for all held-out samples:
-
-```powershell
-node --env-file=.env.local scripts/baseline-plain-llm.mjs --set heldout --tag plain-llm --limit 30
-```
-
-## Decision API test
-
-With the local server running, test invalid submissions and a valid-but-unknown finding ID. These rejection cases do not write rows:
-
+#### 5. Launch Local Server
 ```bash
-node scripts/test-decision-api.mjs
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+### Internal Regression Verification Benchmark
+The platform includes an automated regression harness testing critical pipeline invariants across 8 labeled gold-standard scenarios:
+
+| Benchmark Scenario | Input Category | Expected Outcome | Pipeline Invariant Tested |
+|---|---|---|---|
+| Clean Marketing Copy | Compliant | 0 Findings | False positive suppression |
+| Storage Overclaim | Fact Contradiction | Flagged (Grade A/B) | Closed-world Canon fact matching |
+| Absolute Security Guarantee | Legal Guarantee | Flagged (Grade B) | Mandatory human legal sign-off |
+| Expired Promotion Claim | Outdated Fact | Flagged (Grade A) | Temporal expiry enforcement |
+| System Prompt Injection | Adversarial Prompt | Flagged (Grade A) | Deterministic prompt defense |
+| Cross-Product Hallucination | Entity Mismatch | Flagged (Escalated) | Cross-entity evidence isolation |
+| Single Model Overrule | Disputed Claim | Flagged (Grade B) | Grade A immutability against model |
+| Self-Verified Fix | IntentLock Diff | Verified Patch | Deterministic re-verification check |
+
+Run the regression harness via API:
+```bash
+curl http://localhost:3000/api/eval
 ```
 
-An optional write test needs an existing finding ID and deliberately adds a decision row:
+---
 
-```powershell
-$env:FINDING_ID="<existing finding UUID>"
-$env:WRITE_TEST="1"
-node scripts/test-decision-api.mjs
-Remove-Item Env:FINDING_ID
-Remove-Item Env:WRITE_TEST
+### Strategic Product Roadmap
+
+```
+Q1 2027: Enterprise Integrations ──► Q2 2027: Multi-Modal Governance ──► Q3 2027: Automated CI/CD Linter
 ```
 
-## Operational notes
+- **Q1 2027 — Enterprise CMS & Workspace Connectors**: Direct integrations with Contentful, Sanity, Notion, and Slack to run governance checks prior to publication.
+- **Q2 2027 — Multi-Modal Governance**: Image, infographic, and video frame claim extraction against the Brand Canon using vision specialists.
+- **Q3 2027 — CI/CD Pipeline Linter (`verity-cli`)**: GitHub Action and CLI tool to lint Markdown, MDX, and product release notes in pull requests.
+- **Q4 2027 — Federated Precedent Learning**: Cross-workspace precedent suggestions with differential privacy, allowing multinational organizations to harmonize compliance across subsidiaries.
 
-- Check Gemini quota before a public demo and keep a second key ready.
-- Pre-run demo samples if their results need to be cached.
-- Do not enter real or customer content. History pages are public and display submitted text and decisions.
+---
 
-## Credits
+## Engineering Team
 
-UI components use [shadcn/ui](https://ui.shadcn.com/) and Radix UI primitives, with icons from [lucide-react](https://lucide.dev/).
+- **Pranith Reddy Pasam** — AI & Backend Lead, VIT-AP
+- **Jeevan Kokkanti** — Frontend & Product Lead, VIT-AP

@@ -364,8 +364,14 @@ export default function Home() {
     try {
       const response = await fetch("/api/review", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
+        headers: {
+          "Content-Type": "application/json",
+          "x-workspace-id": "00000000-0000-0000-0000-000000000001",
+        },
+        body: JSON.stringify({
+          content,
+          workspace_id: "00000000-0000-0000-0000-000000000001",
+        }),
       })
       const data: unknown = await response.json()
 

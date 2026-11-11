@@ -50,6 +50,19 @@ export interface Finding {
   suggested_fix: string | null
   requires_human_review?: boolean
   ai_notes?: string[]
+  patch?: {
+    original: string
+    replacement: string
+    rationale: string
+    verified: boolean
+    status?: "verified" | "rejected" | "proposed"
+    verification?: string
+    origin?: string
+    start?: number
+    end?: number
+    failed_reason?: string
+    attempts?: number
+  } | null
   enrichments?: Array<{
     agent: string
     category: string

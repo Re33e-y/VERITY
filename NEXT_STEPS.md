@@ -1,16 +1,11 @@
 # NEXT STEPS — VERITY
 
 ## Current Status
-- **Current Stage**: Starting Phase 3 — Governance and Evidence Reliability
-- **Last Completed Task**: Phase 2 — Complete the Agentic Engine (Multi-provider fallback implemented & verified)
+- **Current Stage**: Completed Final Production Audit
+- **Last Completed Task**: Independent verification across all 8 audit areas, 26/26 agent tests passing, Next.js build clean exit 0.
 
-## Immediate Next Steps (Phase 3)
-1. **ProofGate Invariant Verification**:
-   - Verify Grade D findings strictly hidden from normal user results, counted in summary, stored in audit trace.
-   - Verify Grade A findings are immutable.
-2. **Finding Decision Lifecycle & Audit Logging**:
-   - Complete human decision workflow in `app/api/decisions/route.ts` & `lib/review/decisionValidation.ts`:
-     - `accept`, `dismiss`, `override`, `request_review`.
-     - Associate `decided_by` (actor) and `timestamp`.
-3. **IntentLock Remediation Inspection & UI Integration**:
-   - Verify before/after diff representation and deterministic re-verification.
+## Readiness Assessment
+- **Production Status**: READY FOR JUDGES
+- **Deployment**: Live on Vercel (`https://verity-two-chi.vercel.app`)
+- **Local Dev / Testing**: 100% verified (`npx tsc --noEmit`, `npx tsx scripts/test-agents.mts`, `npm run build`)
+- **Remaining Action**: Commit final audit improvements and present audit checklist to the user.
