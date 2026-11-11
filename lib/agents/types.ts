@@ -332,6 +332,7 @@ export interface AgenticResult {
   config_version?: string;
   schema_version?: string;
   canon_digest?: string;
+  providers_used?: string[];
 }
 
 export interface CacheAdapter {

@@ -4,7 +4,7 @@
 // uncertain, and any failure degrades to the offline findings you already have.
 
 import { createHash } from "node:crypto";
-import { CallBudget, LlmError, getMaxCalls, getPolicy, isQuotaOpen } from "./llm";
+import { CallBudget, LlmError, getMaxCalls, getPolicy, getProvidersUsed, isQuotaOpen } from "./llm";
 import { makePlan, kindOf } from "./orchestrator";
 import { runGroup, type Contest, type Fix, type PanelResult } from "./specialists";
 import { pickCandidates, runCritic, type CriticOutput, type Verdict } from "./critic";
@@ -113,6 +113,7 @@ export async function runAgenticReview(input: PipelineInput): Promise<AgenticRes
     config_version: CONFIG_VERSION,
     schema_version: SCHEMA_VERSION,
     canon_digest: cDigest,
+    providers_used: getProvidersUsed(),
     governance: buildGovernance({
       findings: r.findings,
       suppressed: r.suppressed,

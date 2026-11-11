@@ -1655,4 +1655,83 @@ const aId = (txt: string, q: string, cat: string) =>
   customHandler = null;
 }
 
-console.log("\n--- All 23 Verity Agentic Verification Tests PASSED! ---");
+// 24. Multi-provider fallback: Gemini 429 fails over to OpenRouter seamlessly
+{
+  process.env.OPENROUTER_API_KEY = "test-openrouter-key";
+  process.env.OPENROUTER_MODEL = "test-model";
+  const { resetQuotaCircuit, resetProvidersUsed, getLastProviderUsed } = await import("../lib/agents/llm");
+  resetQuotaCircuit();
+  resetProvidersUsed();
+
+  let geminiCalls = 0;
+  let openRouterCalls = 0;
+
+  customHandler = async (url: unknown, init: { body: string }) => {
+    const urlStr = String(url);
+    if (urlStr.includes("generativelanguage.googleapis.com")) {
+      geminiCalls++;
+      return new Response(JSON.stringify({ error: { message: "Quota exceeded 429" } }), { status: 429 });
+    }
+    if (urlStr.includes("openrouter.ai")) {
+      openRouterCalls++;
+      const body = JSON.parse(init.body);
+      const isCritic = body.messages?.[0]?.content?.includes("independent critic");
+      if (isCritic) {
+        return new Response(JSON.stringify({
+          choices: [{
+            message: {
+              content: JSON.stringify({
+                status: "consensus_reached",
+                verdicts: [],
+                summary: "OpenRouter critic reached consensus",
+              }),
+            },
+          }],
+        }), { status: 200 });
+      } else {
+        return new Response(JSON.stringify({
+          choices: [{
+            message: {
+              content: JSON.stringify({
+                evaluations: [{
+                  claim_id: "claim_1",
+                  agent_name: "fact",
+                  verdict: "unsupported",
+                  confidence: 0.95,
+                  evidence: [],
+                  reasoning_summary: "OpenRouter verified claim is unsupported",
+                  recommended_action: "flag",
+                  requires_human_review: true,
+                }],
+                contests: [],
+                fixes: [],
+              }),
+            },
+          }],
+        }), { status: 200 });
+      }
+    }
+    return new Response("Not found", { status: 404 });
+  };
+
+  const res24 = await runAgenticReview({
+    ...base,
+    text: "Our new database achieves 100% quantum compression without loss.",
+    ambiguous: [{ start: 0, end: 60 }],
+  });
+
+  assert.ok(geminiCalls > 0, "Gemini was attempted first");
+  assert.ok(openRouterCalls > 0, "OpenRouter was called as fallback after Gemini 429");
+  assert.equal(res24.status, "agentic", "Review status is agentic, not degraded to offline");
+  assert.equal(res24.ai_unavailable, false, "AI is available via OpenRouter fallback");
+  console.log("ok 24. Multi-provider fallback: Gemini 429 fails over to OpenRouter, maintaining full specialist reasoning");
+
+  // Cleanup
+  delete process.env.OPENROUTER_API_KEY;
+  delete process.env.OPENROUTER_MODEL;
+  customHandler = null;
+  resetQuotaCircuit();
+  resetProvidersUsed();
+}
+
+console.log("\n--- All 24 Verity Agentic Verification Tests PASSED! ---");

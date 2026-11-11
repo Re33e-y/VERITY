@@ -86,7 +86,7 @@ export default function DecisionForm({ findingId, onSaved }: Props) {
               onChange={() => setDecision(value)}
               className="accent-primary"
             />
-            {value}
+            {value.replace("_", " ")}
           </label>
         ))}
       </div>

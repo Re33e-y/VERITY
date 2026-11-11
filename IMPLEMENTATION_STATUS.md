@@ -1,0 +1,44 @@
+# IMPLEMENTATION STATUS — VERITY ROUND 3
+
+## Phase Checklist
+
+- [x] **Phase 0 — Persistent Working Memory and Execution Checkpoints**
+  - [x] Created `PROJECT_CONTEXT.md`
+  - [x] Created `IMPLEMENTATION_STATUS.md`
+  - [x] Created `DECISIONS_LOG.md`
+  - [x] Created `NEXT_STEPS.md`
+- [x] **Phase 1 — Architecture Audit**
+  - [x] Audit production pipeline config (`REVIEW_PIPELINE`, `REVIEW_AGENTS=on`)
+  - [x] Check specialist agent execution and trace persistence
+  - [x] Verify call budgets, provider fallback, and invariant enforcement
+  - [x] Formulated comprehensive Phase 1 Implementation Plan
+- [x] **Phase 2 — Complete the Agentic Engine**
+  - [x] Implemented robust multi-provider fallback in `lib/agents/llm.ts` (Gemini → OpenRouter → Cloudflare)
+  - [x] Added `getProvidersUsed()`, `getLastProviderUsed()`, and recorded `providers_used` in `AgenticResult` and trace
+  - [x] Handled 429 quota exhaustion, timeouts, auth errors, and malformed envelopes across providers
+  - [x] Added automated Test 24 verifying Gemini 429 failover to OpenRouter without degrading to offline
+  - [x] All 24 tests passed
+- [ ] **Phase 3 — Governance & Evidence Reliability**
+  - [ ] ProofGate: strictly hide Grade D from results while preserving in audit trace
+  - [ ] Human Decision Lifecycle: Accept, Dismiss, Override, Request Review with actor & timestamp
+  - [ ] IntentLock: Verified before/after remediation with deterministic re-verification
+- [ ] **Phase 4 — Round 3 Feature Completion**
+  - [ ] Commitment 1: **IntentLock** (Interactive diff viewer, apply/reject patches with explanation)
+  - [ ] Commitment 2: **PolicyPulse** (Clarity radar, override rates, repeat violations, expiring facts dashboard)
+  - [ ] Commitment 3: **Review Workflow & Precedent Library** (Decisions, exception precedents)
+  - [ ] Capability A: Authentication & Private Workspaces (with zero-friction Judge Demo mode)
+  - [ ] Capability B: Versioned Brand Canon (Edit, propose change, approve/reject, version rollback)
+  - [ ] Capability C: Evaluation & Regression Workflow (Benchmark runner, metrics, confusion matrix, precision/recall)
+- [ ] **Phase 5 — User Experience & Reliability**
+  - [ ] Complete Judge Walkthrough (End-to-end journey)
+  - [ ] Edge cases: empty text, oversized text, injections, 429 quota exhaustion
+  - [ ] Responsive navigation & unified dark console theme
+- [ ] **Phase 6 — Testing**
+  - [ ] Run `npx tsc --noEmit` (0 errors)
+  - [ ] Run `npx tsx scripts/test-agents.mts` (all 24+ tests pass)
+  - [ ] Run `npm run build`
+- [ ] **Phase 7 — Documentation & Deployment**
+  - [ ] Update README.md
+  - [ ] Verify migrations & clean git diff
+- [ ] **Phase 8 — Final Submission Package**
+  - [ ] Prepare comprehensive Round 3 report

@@ -1,4 +1,4 @@
-export const ALLOWED_DECISIONS = ["accepted", "dismissed", "overridden"] as const
+export const ALLOWED_DECISIONS = ["accepted", "dismissed", "overridden", "request_review"] as const
 export type DecisionValue = (typeof ALLOWED_DECISIONS)[number]
 
 export const MIN_REASON_LENGTH = 5
@@ -28,8 +28,9 @@ export function validateDecision(
     return { ok: false, error: "A valid finding_id is required." }
   }
 
-  const decision =
+  let decision =
     typeof body.decision === "string" ? body.decision.trim().toLowerCase() : ""
+  if (decision === "requested_review") decision = "request_review"
   if (!(ALLOWED_DECISIONS as readonly string[]).includes(decision)) {
     return {
       ok: false,
