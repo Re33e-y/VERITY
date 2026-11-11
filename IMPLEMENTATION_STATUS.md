@@ -47,3 +47,14 @@
   - [x] **Defect 2**: Workspace ID isolation enforced server-side on `/api/review`, persisted into `review_runs`, and filtered in `/history`.
   - [x] **Defect 3**: Evaluation Suite reframed as an internal regression verification benchmark of pipeline invariants with clear caveats.
   - [x] **README.md Restructuring**: Completely overhauled and structured around the 5 evaluation criteria (Product Completeness, Three Delivered Improvements, Reliability Under Normal & Adversarial Use, Usability & Real-World Fit, Documentation & Strategic Roadmap) with zero mention of score/point numbers.
+
+- [x] **Phase 10 — Functional Workspace Scoping (November 2026)**
+  - [x] **Workspace-Scoped Canon Migration**: Added `workspace_id` column to `rules` and `facts` tables via `supabase/migrations/20261111_workspace_scoped_canon.sql`.
+  - [x] **Domain-Specific Workspaces Seeded**: Default Brand Workspace (general copy), Enterprise Security Team (infosec, PCI DSS, SLA guarantees), and Judge Demo Workspace (isolated audit sandbox).
+  - [x] **API Scoping**: Updated `/api/canon` to filter rules, facts, and proposals by `workspace_id` query param (defaulting to workspace 1).
+  - [x] **New Workspace Endpoints**:
+    - `GET /api/workspace/stats`: Live review count, flagged count, human override rate, and deterministic efficiency computed per workspace.
+    - `GET /api/workspace/history`: Historical review runs filtered strictly by `workspace_id`.
+  - [x] **Reactive Frontend Context**: Updated `app/page.tsx` so switching workspaces triggers live updates for Brand Canon, Decision History, and PolicyPulse analytics without page reloads.
+  - [x] **Session Persistence**: Active workspace choice persisted via `localStorage`.
+  - [x] **Visual Indicators**: Judge Demo mode clearly badged (`DEMO`), with role and description tooltips in selector.

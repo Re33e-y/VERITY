@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, Fragment } from "react"
+import { useState, useEffect, useCallback, Fragment } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 
@@ -329,6 +329,19 @@ export default function LandingPage() {
   const [evalLoading, setEvalLoading] = useState(false)
   const [evalRunData, setEvalRunData] = useState<any>(null)
   const [canonVersion, setCanonVersion] = useState(2)
+  const [canonRulesLive, setCanonRulesLive] = useState<any[] | null>(null)
+  const [canonFactsLive, setCanonFactsLive] = useState<any[] | null>(null)
+  const [workspaceStats, setWorkspaceStats] = useState<{
+    reviewCount: number
+    flaggedCount: number
+    passedCount: number
+    decisionCount: number
+    overrideRate: number
+    deterministicPct: number
+    clarityScore: number
+  } | null>(null)
+  const [workspaceLoading, setWorkspaceLoading] = useState(false)
+  const [liveHistoryItems, setLiveHistoryItems] = useState<HistoryItem[] | null>(null)
   const [showProposeModal, setShowProposeModal] = useState(false)
   const [proposedCode, setProposedCode] = useState("")
   const [proposedDesc, setProposedDesc] = useState("")
@@ -343,6 +356,54 @@ export default function LandingPage() {
       created_at: "10 minutes ago"
     }
   ])
+
+  const loadWorkspaceData = useCallback(async (wsId: string) => {
+    setWorkspaceLoading(true)
+    try {
+      const [canonRes, statsRes, historyRes] = await Promise.allSettled([
+        fetch(`/api/canon?workspace_id=${wsId}`).then(r => r.json()),
+        fetch(`/api/workspace/stats?workspace_id=${wsId}`).then(r => r.json()),
+        fetch(`/api/workspace/history?workspace_id=${wsId}`).then(r => r.json()),
+      ])
+
+      if (canonRes.status === "fulfilled" && canonRes.value?.rules) {
+        setCanonRulesLive(canonRes.value.rules)
+        setCanonFactsLive(canonRes.value.facts ?? [])
+        setProposalsList(canonRes.value.proposals ?? [])
+        if (canonRes.value.activeVersion) setCanonVersion(canonRes.value.activeVersion)
+      }
+      if (statsRes.status === "fulfilled" && !statsRes.value?.error) {
+        setWorkspaceStats(statsRes.value)
+      }
+      if (historyRes.status === "fulfilled" && historyRes.value?.history) {
+        const fetched: HistoryItem[] = historyRes.value.history
+        setLiveHistoryItems(fetched.length > 0 ? fetched : null)
+      }
+    } catch {
+      // silent — keep showing static data
+    } finally {
+      setWorkspaceLoading(false)
+    }
+  }, [])
+
+  // Persist and restore workspace selection
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const saved = localStorage.getItem("verity_workspace_id")
+    if (saved) {
+      const found = WORKSPACES.find(w => w.id === saved)
+      if (found && found.id !== activeWorkspace.id) {
+        setActiveWorkspace(found)
+      }
+    }
+    loadWorkspaceData(activeWorkspace.id)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Reload data when workspace changes
+  useEffect(() => {
+    loadWorkspaceData(activeWorkspace.id)
+  }, [activeWorkspace.id, loadWorkspaceData])
 
   async function runLiveEvaluation() {
     setEvalLoading(true)
@@ -381,24 +442,39 @@ export default function LandingPage() {
     }
   }
 
-  function handleAddProposal(e: React.FormEvent) {
+  async function handleAddProposal(e: React.FormEvent) {
     e.preventDefault()
     if (!proposedCode.trim() || !proposedDesc.trim()) return
-    setProposalsList(prev => [
-      {
-        id: `prop-${Date.now().toString().slice(-4)}`,
-        code: proposedCode.trim().toUpperCase(),
-        item_type: "rule",
-        description: proposedDesc.trim(),
-        status: "pending",
-        proposed_by: "Lead Compliance Auditor",
-        created_at: "Just now"
-      },
-      ...prev
-    ])
+    const newProposal = {
+      id: `prop-${Date.now().toString().slice(-4)}`,
+      code: proposedCode.trim().toUpperCase(),
+      item_type: "rule",
+      description: proposedDesc.trim(),
+      status: "pending",
+      proposed_by: "Lead Compliance Auditor",
+      created_at: "Just now"
+    }
+    setProposalsList(prev => [newProposal, ...prev])
     setProposedCode("")
     setProposedDesc("")
     setShowProposeModal(false)
+
+    try {
+      await fetch("/api/canon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "propose",
+          workspace_id: activeWorkspace.id,
+          item_type: "rule",
+          code: newProposal.code,
+          description: newProposal.description,
+          actor: "Lead Compliance Auditor",
+        }),
+      })
+    } catch {
+      // best-effort: local state already updated
+    }
   }
 
   function handleApproveProposal(propId: string) {
@@ -440,7 +516,19 @@ export default function LandingPage() {
     })
   }
 
-  const filteredRules = CANON_RULES.filter((r) => {
+  const displayRules: CanonRuleDef[] = canonRulesLive !== null && canonRulesLive.length > 0
+    ? canonRulesLive.map((r: any) => ({
+        code: r.code ?? "",
+        category: r.type ?? "General",
+        severity: (r.severity?.toUpperCase() === "HIGH" ? "HIGH" : r.severity?.toUpperCase() === "LOW" ? "LOW" : "MEDIUM") as "HIGH" | "MEDIUM" | "LOW",
+        description: r.description ?? "",
+        pattern: r.pattern ?? "",
+        preferred: r.preferred ?? "",
+        enforcer: "Deterministic Regex",
+      }))
+    : CANON_RULES
+
+  const filteredRules = displayRules.filter((r) => {
     if (!canonSearch.trim()) return true
     const q = canonSearch.toLowerCase()
     return (
@@ -452,7 +540,16 @@ export default function LandingPage() {
     )
   })
 
-  const filteredFacts = CANON_FACTS.filter((f) => {
+  const displayFacts = canonFactsLive !== null && canonFactsLive.length > 0
+    ? canonFactsLive.map((f: any) => ({
+        code: f.code ?? "",
+        category: "Canon Fact",
+        statement: f.statement ?? "",
+        status: f.status ?? "active",
+      }))
+    : CANON_FACTS
+
+  const filteredFacts = displayFacts.filter((f) => {
     if (!canonSearch.trim()) return true
     const q = canonSearch.toLowerCase()
     return (
@@ -505,6 +602,7 @@ export default function LandingPage() {
         decision: "PENDING",
       }
       setHistoryItems(prev => [newRun, ...prev])
+      setLiveHistoryItems(prev => prev ? [newRun, ...prev] : [newRun])
     } catch (err) {
       setError(err instanceof Error ? err.message : "Audit request failed")
     } finally {
@@ -607,18 +705,22 @@ VERITY
 <nav className="desktop-nav" style={{"display":"flex","flexWrap":"wrap","gap":"10px","fontWeight":"600","fontSize":"14px","alignItems":"center"}}>
 <button type="button" onClick={() => { setActiveView("workspace"); scrollToAudit(); }} style={{"background": activeView === "workspace" ? "#3B66FF" : "transparent","color": activeView === "workspace" ? "#FFFFFF" : "#111111","border":"1px solid #111111","padding":"6px 12px","cursor":"pointer","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","boxShadow": activeView === "workspace" ? "2px 2px 0 #111111" : "none"}}>Workspace</button>
 <button type="button" onClick={() => { setActiveView("canon"); scrollToAudit(); }} style={{"padding":"6px 12px","border":"1px solid #111","background": activeView === "canon" ? "#3B66FF" : "#FFFDF8","color": activeView === "canon" ? "#FFFFFF" : "#111111","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","cursor":"pointer","boxShadow": activeView === "canon" ? "2px 2px 0 #111111" : "none"}}>Brand Canon (v{canonVersion})</button>
-<button type="button" onClick={() => { setActiveView("history"); scrollToAudit(); }} style={{"padding":"6px 12px","border":"1px solid #111","background": activeView === "history" ? "#3B66FF" : "#FFFDF8","color": activeView === "history" ? "#FFFFFF" : "#111111","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","cursor":"pointer","boxShadow": activeView === "history" ? "2px 2px 0 #111111" : "none"}}>History ({historyItems.length})</button>
+<button type="button" onClick={() => { setActiveView("history"); scrollToAudit(); }} style={{"padding":"6px 12px","border":"1px solid #111","background": activeView === "history" ? "#3B66FF" : "#FFFDF8","color": activeView === "history" ? "#FFFFFF" : "#111111","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","cursor":"pointer","boxShadow": activeView === "history" ? "2px 2px 0 #111111" : "none"}}>History ({(liveHistoryItems ?? historyItems).length})</button>
 <button type="button" onClick={() => { setActiveView("policypulse"); scrollToAudit(); }} style={{"padding":"6px 12px","border":"1px solid #111","background": activeView === "policypulse" ? "#3B66FF" : "#FFFDF8","color": activeView === "policypulse" ? "#FFFFFF" : "#111111","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","cursor":"pointer","boxShadow": activeView === "policypulse" ? "2px 2px 0 #111111" : "none"}}>PolicyPulse</button>
 <button type="button" onClick={() => { setActiveView("eval"); scrollToAudit(); }} style={{"padding":"6px 12px","border":"1px solid #111","background": activeView === "eval" ? "#3B66FF" : "#FFFDF8","color": activeView === "eval" ? "#FFFFFF" : "#111111","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","cursor":"pointer","boxShadow": activeView === "eval" ? "2px 2px 0 #111111" : "none"}}>Evaluation Suite</button>
 
 {/* Workspace Selector */}
 <div style={{"display":"inline-flex","alignItems":"center","background":"#111111","border":"1px solid #333","padding":"4px 10px","gap":"6px","fontFamily":"'JetBrains Mono', monospace","fontSize":"12px"}}>
   <span style={{"color":"#7BE0A4"}}>🏢</span>
+  {workspaceLoading && <span style={{"color":"#3B66FF","fontSize":"11px","animation":"spin 1s linear infinite","display":"inline-block"}}>⟳</span>}
   <select
     value={activeWorkspace.id}
     onChange={(e) => {
       const found = WORKSPACES.find(w => w.id === e.target.value)
-      if (found) setActiveWorkspace(found)
+      if (found) {
+        setActiveWorkspace(found)
+        if (typeof window !== "undefined") localStorage.setItem("verity_workspace_id", found.id)
+      }
     }}
     style={{
       "background":"transparent",
@@ -630,11 +732,15 @@ VERITY
       "fontFamily":"'Space Grotesk', system-ui, sans-serif"
     }}
     aria-label="Active Workspace"
+    title={activeWorkspace.role}
   >
     {WORKSPACES.map(w => (
       <option key={w.id} value={w.id} style={{"background":"#111","color":"#FFF"}}>{w.name}</option>
     ))}
   </select>
+  {activeWorkspace.id === "00000000-0000-0000-0000-000000000003" && (
+    <span style={{"background":"#FFD166","color":"#111111","fontSize":"10px","fontWeight":"700","padding":"2px 6px","marginLeft":"4px","letterSpacing":"0.05em"}}>DEMO</span>
+  )}
 </div>
 </nav>
 
@@ -654,7 +760,7 @@ VERITY
       className="neo-btn"
       style={{"background": activeView === "canon" ? "#3B66FF" : "#FFFDF8","color": activeView === "canon" ? "#FFFFFF" : "#111111","padding":"12px 16px","justifyContent":"flex-start","minHeight":"44px","fontSize":"15px"}}
     >
-      📜 Brand Canon ({CANON_RULES.length})
+      📜 Brand Canon ({filteredRules.length})
     </button>
     <button
       type="button"
@@ -662,7 +768,7 @@ VERITY
       className="neo-btn"
       style={{"background": activeView === "history" ? "#3B66FF" : "#FFFDF8","color": activeView === "history" ? "#FFFFFF" : "#111111","padding":"12px 16px","justifyContent":"flex-start","minHeight":"44px","fontSize":"15px"}}
     >
-      📊 Decision History ({historyItems.length})
+      📊 Decision History ({(liveHistoryItems ?? historyItems).length})
     </button>
     <div style={{"display":"flex","flexWrap":"wrap","gap":"14px","paddingTop":"6px","fontFamily":"'JetBrains Mono', monospace","fontSize":"13px"}}>
       <a href="#architecture" onClick={() => setMobileMenuOpen(false)} style={{"color":"#111111","textDecoration":"underline"}}>Architecture</a>
@@ -1946,30 +2052,35 @@ VERITY
         </div>
 
         {/* Metric Summary Cards */}
-        <div style={{"display":"grid","gridTemplateColumns":"repeat(auto-fit, minmax(180px, 1fr))","gap":"12px"}}>
-          <div style={{"background":"#111111","border":"1px solid #333","padding":"14px"}}>
-            <div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","color":"#8E897E"}}>TOTAL RUNS</div>
-            <div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"28px","fontWeight":"700","color":"#F4F1EA"}}>{historyItems.length}</div>
-          </div>
-          <div style={{"background":"#111111","border":"1px solid #333","padding":"14px"}}>
-            <div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","color":"#8E897E"}}>DETERMINISTIC (0 LLM)</div>
-            <div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"28px","fontWeight":"700","color":"#7BE0A4"}}>
-              {historyItems.filter(h => h.calls === 0).length}
+        {(() => {
+          const currentHistory = liveHistoryItems ?? historyItems
+          return (
+            <div style={{"display":"grid","gridTemplateColumns":"repeat(auto-fit, minmax(180px, 1fr))","gap":"12px"}}>
+              <div style={{"background":"#111111","border":"1px solid #333","padding":"14px"}}>
+                <div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","color":"#8E897E"}}>TOTAL RUNS</div>
+                <div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"28px","fontWeight":"700","color":"#F4F1EA"}}>{currentHistory.length}</div>
+              </div>
+              <div style={{"background":"#111111","border":"1px solid #333","padding":"14px"}}>
+                <div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","color":"#8E897E"}}>DETERMINISTIC (0 LLM)</div>
+                <div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"28px","fontWeight":"700","color":"#7BE0A4"}}>
+                  {currentHistory.filter(h => h.calls === 0).length}
+                </div>
+              </div>
+              <div style={{"background":"#111111","border":"1px solid #333","padding":"14px"}}>
+                <div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","color":"#8E897E"}}>HYBRID / MULTI-AGENT</div>
+                <div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"28px","fontWeight":"700","color":"#3B66FF"}}>
+                  {currentHistory.filter(h => h.calls > 0).length}
+                </div>
+              </div>
+              <div style={{"background":"#111111","border":"1px solid #333","padding":"14px"}}>
+                <div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","color":"#8E897E"}}>HUMAN DECISIONS</div>
+                <div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"28px","fontWeight":"700","color":"#FFD166"}}>
+                  {currentHistory.filter(h => h.decision !== "PENDING").length}
+                </div>
+              </div>
             </div>
-          </div>
-          <div style={{"background":"#111111","border":"1px solid #333","padding":"14px"}}>
-            <div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","color":"#8E897E"}}>HYBRID / MULTI-AGENT</div>
-            <div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"28px","fontWeight":"700","color":"#3B66FF"}}>
-              {historyItems.filter(h => h.calls > 0).length}
-            </div>
-          </div>
-          <div style={{"background":"#111111","border":"1px solid #333","padding":"14px"}}>
-            <div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","color":"#8E897E"}}>HUMAN DECISIONS</div>
-            <div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"28px","fontWeight":"700","color":"#FFD166"}}>
-              {historyItems.filter(h => h.decision !== "PENDING").length}
-            </div>
-          </div>
-        </div>
+          )
+        })()}
 
         {/* History Table */}
         {/* History Table (Desktop / Tablet) */}
@@ -1987,7 +2098,7 @@ VERITY
               </tr>
             </thead>
             <tbody>
-              {historyItems.map((item) => (
+              {(liveHistoryItems ?? historyItems).map((item) => (
                 <tr key={item.id} style={{"borderBottom":"1px solid #222","background":"#18181B"}}>
                   <td style={{"padding":"14px","whiteSpace":"nowrap"}}>
                     <div style={{"fontFamily":"'JetBrains Mono', monospace","fontWeight":"700","color":"#3B66FF","fontSize":"13px"}}>{item.id}</div>
@@ -2056,7 +2167,7 @@ VERITY
 
         {/* Mobile responsive card alternative for Decision History */}
         <div className="mobile-card-list" style={{"display":"none","flexDirection":"column","gap":"12px"}}>
-          {historyItems.map((item) => (
+          {(liveHistoryItems ?? historyItems).map((item) => (
             <div key={item.id} style={{"background":"#18181B","border":"1px solid #27272A","padding":"14px","display":"flex","flexDirection":"column","gap":"8px"}}>
               <div style={{"display":"flex","justifyContent":"space-between","alignItems":"center","gap":"8px"}}>
                 <span style={{"fontFamily":"'JetBrains Mono', monospace","fontWeight":"700","color":"#3B66FF","fontSize":"12px"}}>{item.id}</span>
@@ -2090,7 +2201,7 @@ VERITY
 
         {/* Expanded Run Detail Modal/Card if any run selected */}
         {expandedRunId && (() => {
-          const run = historyItems.find(h => h.id === expandedRunId)
+          const run = (liveHistoryItems ?? historyItems).find(h => h.id === expandedRunId)
           if (!run) return null
           return (
             <div style={{"background":"#111111","border":"2px solid #3B66FF","padding":"20px","display":"flex","flexDirection":"column","gap":"14px"}}>
@@ -2202,17 +2313,25 @@ VERITY
         <div style={{"display":"grid","gridTemplateColumns":"repeat(auto-fit, minmax(220px, 1fr))","gap":"14px"}}>
           <div style={{"background":"#111111","border":"1px solid #333","padding":"18px"}}>
             <div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","color":"#8E897E"}}>GUIDELINE CLARITY SCORE</div>
-            <div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"700","color":"#7BE0A4","marginTop":"4px"}}>94.2%</div>
+            <div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"700","color":"#7BE0A4","marginTop":"4px"}}>
+              {workspaceStats ? `${workspaceStats.clarityScore}%` : "94.2%"}
+            </div>
             <div style={{"fontSize":"12px","color":"#8E897E","marginTop":"4px"}}>High rule precision; low agent ambiguity</div>
           </div>
           <div style={{"background":"#111111","border":"1px solid #333","padding":"18px"}}>
             <div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","color":"#8E897E"}}>HUMAN OVERRIDE RATE</div>
-            <div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"700","color":"#FFD166","marginTop":"4px"}}>8.2%</div>
-            <div style={{"fontSize":"12px","color":"#8E897E","marginTop":"4px"}}>Humans modified 8.2% of model findings</div>
+            <div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"700","color":"#FFD166","marginTop":"4px"}}>
+              {workspaceStats ? `${workspaceStats.overrideRate}%` : "8.2%"}
+            </div>
+            <div style={{"fontSize":"12px","color":"#8E897E","marginTop":"4px"}}>
+              {workspaceStats ? `Humans modified ${workspaceStats.overrideRate}% of model findings` : "Humans modified 8.2% of model findings"}
+            </div>
           </div>
           <div style={{"background":"#111111","border":"1px solid #333","padding":"18px"}}>
             <div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","color":"#8E897E"}}>DETERMINISTIC EFFICIENCY</div>
-            <div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"700","color":"#3B66FF","marginTop":"4px"}}>81.0%</div>
+            <div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"700","color":"#3B66FF","marginTop":"4px"}}>
+              {workspaceStats ? `${workspaceStats.deterministicPct}%` : "81.0%"}
+            </div>
             <div style={{"fontSize":"12px","color":"#8E897E","marginTop":"4px"}}>0 LLM calls spent on settled copy</div>
           </div>
           <div style={{"background":"#111111","border":"1px solid #333","padding":"18px"}}>

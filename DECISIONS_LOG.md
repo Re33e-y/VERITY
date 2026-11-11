@@ -44,3 +44,17 @@
 - **Decision**: Evaluation suite described explicitly as internal regression verification benchmark, not generalizable accuracy proof.
 - **Decision**: Limitations section added covering auth absence, in-memory circuit breaker, per-instance rate limiting, and 5000-char limit.
 - **Discrepancy found**: Base schema migrations (`review_runs`, `rules`, `facts`, `findings`) do not appear in the tracked migrations directory. Documented as a gap in NEXT_STEPS.md.
+
+
+## Decision: Workspace-Scoped Canon and Live Data Loading (November 11, 2026)
+
+**Context:** The workspace selector was previously decorative (switching only changed React state without loading tenant-specific data).
+
+**Decision:**
+1. Scope `rules` and `facts` by `workspace_id` in Supabase schema.
+2. Parameterize `/api/canon` with `workspace_id` and pass it during proposal creation.
+3. Introduce `/api/workspace/stats` and `/api/workspace/history` for tenant-scoped telemetry and audit logs.
+4. Dynamically hydrate `app/page.tsx` on workspace change via `useEffect` with graceful fallback to constants if Supabase is offline.
+5. Persist selection in `localStorage` across page reloads.
+
+**Rationale:** Provides functional multi-tenancy and true isolation for judge evaluations without introducing heavy tenant management frameworks or disrupting existing deterministic/agentic pipelines.

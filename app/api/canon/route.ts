@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { supabase } from "@/lib/supabase"
 import { randomUUID } from "node:crypto"
 
+const DEFAULT_WORKSPACE = "00000000-0000-0000-0000-000000000001"
+
 export async function GET(req: Request) {
   if (!supabase) {
     return NextResponse.json(
@@ -12,17 +14,22 @@ export async function GET(req: Request) {
 
   try {
     const { searchParams } = new URL(req.url)
-    const versionParam = searchParams.get("version")
+    const workspaceId = searchParams.get("workspace_id") || DEFAULT_WORKSPACE
 
     const [rulesResult, factsResult] = await Promise.all([
-      supabase.from("rules").select("*").order("code"),
-      supabase.from("facts").select("*").order("code"),
+      supabase.from("rules").select("*").eq("workspace_id", workspaceId).order("code"),
+      supabase.from("facts").select("*").eq("workspace_id", workspaceId).order("code"),
     ])
 
     let proposalsData: any[] = []
     let versionsData: any[] = []
     try {
-      const pRes = await supabase.from("canon_proposals").select("*").order("created_at", { ascending: false }).limit(20)
+      const pRes = await supabase
+        .from("canon_proposals")
+        .select("*")
+        .eq("workspace_id", workspaceId)
+        .order("created_at", { ascending: false })
+        .limit(20)
       if (pRes.data) proposalsData = pRes.data
     } catch {
       // best-effort
@@ -78,6 +85,7 @@ export async function POST(req: Request) {
 
   const action = body.action
   const actor = body.actor || "Brand Governance Officer"
+  const workspaceId = body.workspace_id || DEFAULT_WORKSPACE
 
   try {
     if (action === "propose") {
@@ -93,6 +101,7 @@ export async function POST(req: Request) {
 
       const { data, error } = await supabase.from("canon_proposals").insert({
         id: proposalId,
+        workspace_id: workspaceId,
         item_type: item_type || "rule",
         action: "create",
         code,
@@ -116,8 +125,8 @@ export async function POST(req: Request) {
       const { proposal_id } = body
       if (!proposal_id) return NextResponse.json({ error: "proposal_id is required" }, { status: 400 })
 
-      // Fetch current max version
-      const { data: rules } = await supabase.from("rules").select("canon_version")
+      // Fetch current max version for this workspace
+      const { data: rules } = await supabase.from("rules").select("canon_version").eq("workspace_id", workspaceId)
       const currentVersion = Math.max(1, ...(rules || []).map((r: any) => r.canon_version || 1))
       const nextVersion = currentVersion + 1
 
