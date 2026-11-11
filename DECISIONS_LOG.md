@@ -34,3 +34,13 @@
 - **Audit Verification 2 (Provider Fallback Chain)**: Verified all 3 providers with automated tests 24, 25, and 26. Final response identifies `providers_used`.
 - **Audit Verification 3 (Evaluation Suite Framing)**: Explicitly labeled the 8-case benchmark in UI and docs as an internal regression verification suite rather than claiming unconstrained generalization.
 - **Audit Verification 4 (Production Build & Streaming)**: Solved Next.js 16 Partial Prerender requirement on `/history` and `/history/[id]` by moving `searchParams` consumption inside `<Suspense>` boundaries.
+
+
+### 2026-11-11 — Judge-Ready README Rewrite
+- **Decision**: Full README rewrite from scratch against actual implementation files. Read: `PROJECT_CONTEXT.md`, `IMPLEMENTATION_STATUS.md`, `DECISIONS_LOG.md`, `NEXT_STEPS.md`, `package.json`, `app/api/review/route.ts`, `lib/agents/pipeline.ts`, `lib/agents/orchestrator.ts`, `lib/agents/specialists.ts`, `lib/agents/critic.ts`, `lib/agents/guards.ts`, `lib/agents/remediation.ts`, `lib/agents/governance.ts`, `lib/agents/llm.ts`, `lib/engine/router.ts`, `lib/engine/deterministic.ts`, `lib/engine/gateway-llm.ts`, `lib/llm/gateway.ts`, and all four migration files.
+- **Decision**: Documented both V1 and V2 pipelines as functional. V2 is not deprecated.
+- **Decision**: Correctly attributed three separate provider implementations: `gateway-llm.ts` (Gemini→OpenRouter for V1), `lib/llm/gateway.ts` (full three-provider for V2), `lib/agents/llm.ts` (Gemini→OpenRouter→Cloudflare for agents).
+- **Decision**: Documented workspace security honestly — RLS enabled but no anon-key policies; server-side control relies on service-role key restriction. Flagged as a limitation.
+- **Decision**: Evaluation suite described explicitly as internal regression verification benchmark, not generalizable accuracy proof.
+- **Decision**: Limitations section added covering auth absence, in-memory circuit breaker, per-instance rate limiting, and 5000-char limit.
+- **Discrepancy found**: Base schema migrations (`review_runs`, `rules`, `facts`, `findings`) do not appear in the tracked migrations directory. Documented as a gap in NEXT_STEPS.md.
