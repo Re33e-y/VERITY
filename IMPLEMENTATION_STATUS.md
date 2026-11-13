@@ -81,3 +81,18 @@
     - `npx tsx scripts/test-reproduction-fixes.mts`: 6/6 passed.
     - `npx tsx scripts/test-agents.mts`: 26/26 passed.
     - `npm run build`: Production build cleanly succeeded with code 0 (13/13 static and dynamic routes).
+
+- [x] **Phase 12 — Judge BYOK (Bring Your Own API Key) Implementation**
+  - [x] **In-Memory Session Store (`lib/byok/session.ts`)**: Volatile server memory storage with 15-minute sliding TTL, 30-minute max lifetime, and instant memory purging on disconnect.
+  - [x] **Supported Providers**: Google Gemini, Groq, and OpenRouter with minimal validation test ping.
+  - [x] **Credential Security & Redaction**: Zero client SDK exposure; secrets redacted from all exceptions, traces, and payloads via `redactSecrets()`.
+  - [x] **Concurrency & Rate Controls**: Max 2 in-flight reviews and max 30 reviews per session token.
+  - [x] **Agentic & Engine Integration**: Connected through `byokStorage` (`AsyncLocalStorage`) in `lib/agents/llm.ts` and `app/api/review/route.ts`.
+  - [x] **Judge Workspace UI**: Added Judge BYOK pill in header and interactive BYOK Configuration Panel in the Audit Workspace with real-time status and masked keys.
+  - [x] **Dedicated Verification Suite**: Added `scripts/test-byok.mts` (6/6 tests passing).
+  - [x] **Production Verification**:
+    - `npx tsc --noEmit`: 0 errors.
+    - `npx tsx scripts/test-byok.mts`: 6/6 passed.
+    - `npx tsx scripts/test-reproduction-fixes.mts`: 6/6 passed.
+    - `npx tsx scripts/test-agents.mts`: 26/26 passed.
+    - `npm run build`: 16/16 routes compiled cleanly with exit code 0.

@@ -432,8 +432,29 @@ verity/
 │
 └── scripts/
     ├── test-agents.mts           # 26-test agent verification & fallback suite
+    ├── test-byok.mts             # 6-test Judge BYOK credential & session test suite
     └── test-reproduction-fixes.mts # 6-test Part A regression suite
 ```
+
+---
+
+## Judge BYOK (Bring Your Own API Key)
+
+Judges evaluating VERITY live can connect their own AI provider credentials to run reviews under their own quota and inspect specialist agent orchestration in real-time.
+
+### Supported Providers & Models
+- **Google Gemini**: `gemini-2.5-flash` (Recommended), `gemini-1.5-flash`, `gemini-1.5-pro`
+- **Groq (Fast Llama Inference)**: `llama-3.3-70b-versatile` (Recommended), `llama-3.1-8b-instant`, `mixtral-8x7b-32768`
+- **OpenRouter (Multi-Model Gateway)**: `google/gemini-2.5-flash` (Recommended), `meta-llama/llama-3.3-70b-instruct`, `anthropic/claude-3.5-haiku`
+
+### Credential Security Guarantees
+- **Zero Client-Side Exposure**: Provider keys are never sent to browser-side model SDKs. All model dispatches execute strictly server-side.
+- **Zero Disk or DB Persistence**: Raw API keys are never stored in Supabase, localStorage, sessionStorage, cookies, or application logs.
+- **Volatile Server Memory with Sliding TTL**: Credentials reside exclusively in an isolated in-memory map protected by a 15-minute inactivity TTL and 30-minute maximum lifetime.
+- **Cryptographically Isolated Sessions**: Each judge session is assigned an unguessable `byok_sess_` token. Requests run within an `AsyncLocalStorage` boundary so concurrent judge reviews never share or bleed credentials.
+- **Automatic Secret Redaction**: All error messages, stack traces, and API responses are sanitized through `redactSecrets()`, masking any active keys or provider-specific token patterns.
+- **Fixed Official Endpoints**: The platform connects strictly to official provider endpoints (`googleapis.com`, `groq.com`, `openrouter.ai`) and rejects arbitrary user-supplied base URLs.
+- **Clean Fallback**: If a judge's key encounters rate limits (429) or invalid auth (401), VERITY flags `ai_unavailable: true`, safely captures the redacted provider error, and completes the review with deterministic Grade A offline verification.
 
 ---
 
@@ -541,6 +562,20 @@ npx tsc --noEmit
 ```
 
 Expected: 0 errors.
+
+### Judge BYOK Test Suite
+
+```bash
+npx tsx scripts/test-byok.mts
+```
+
+6 tests verifying:
+- Dual judge session credential isolation (Session A vs Session B).
+- Complete secret redaction from exceptions, traces, and API responses.
+- In-memory credential expiration and instant purge on disconnect.
+- Concurrency limiting (max 2 parallel reviews per session).
+- Session review quotas (max 30 reviews per session).
+- Deterministic verification fallback upon provider authentication failure.
 
 ### Part A Reproduction Regression Suite
 

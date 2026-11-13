@@ -1,13 +1,14 @@
 # NEXT STEPS — VERITY
 
 ## Current Status
-- **Current Stage**: Round 3 Engine Bug Fixes, Multi-Workspace Scoping & Neo-Brutalist Polish Complete
-- **Last Completed Task**: Resolved 7 root-cause review/engine reproduction bugs, implemented server-side workspace-scoped review queries, added Part A regression test suite, polished neo-brutalist UI across all landing page sections, and achieved clean Next.js production build.
+- **Current Stage**: Judge BYOK (Bring Your Own API Key) & Final Submission Delivery Complete
+- **Last Completed Task**: Implemented optional Judge BYOK supporting Google Gemini, Groq, and OpenRouter with server-side in-memory session isolation, 15-minute sliding TTL, pre-flight credential validation, AsyncLocalStorage request scoping, automatic secret redaction, and seamless deterministic fallback.
 - **Verification Status**:
   - `npx tsc --noEmit` — 0 errors
+  - `npx tsx scripts/test-byok.mts` — 6/6 tests passed
   - `npx tsx scripts/test-reproduction-fixes.mts` — 6/6 tests passed
   - `npx tsx scripts/test-agents.mts` — 26/26 tests passed
-  - `npm run build` — 13/13 static and dynamic routes compiled cleanly (exit code 0)
+  - `npm run build` — 16/16 static and dynamic routes compiled cleanly (exit code 0)
 
 ## Readiness Assessment
 - **Production Status**: READY FOR JUDGES

@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase"
 import type { BrandFact, BrandRule } from "@/lib/review/types"
 import type { Fact, ReviewEngine, Rule, Verdict } from "@/types/engine"
 import type { AgenticResult } from "@/lib/agents/types"
+import { byokStorage, getByokSession, releaseByokSession, type ByokConfig } from "@/lib/byok/session"
 
 export const maxDuration = 60
 
@@ -203,6 +204,35 @@ export async function POST(req: Request) {
       ? ((body as Record<string, unknown>).workspace_id as string).trim()
       : req.headers.get("x-workspace-id") || null
 
+  const byokSessionToken =
+    typeof body === "object" &&
+    body !== null &&
+    "byok_session_token" in body &&
+    typeof (body as Record<string, unknown>).byok_session_token === "string"
+      ? ((body as Record<string, unknown>).byok_session_token as string).trim()
+      : req.headers.get("x-byok-session-token") || null
+
+  let byokConfig: ByokConfig | undefined = undefined
+  let byokSessionInfo: { provider: string; model: string; maskedKey: string } | null = null
+
+  if (byokSessionToken) {
+    const { session, error: byokErr } = getByokSession(byokSessionToken)
+    if (!session) {
+      return NextResponse.json({ error: `BYOK Error: ${byokErr}` }, { status: 401 })
+    }
+    byokConfig = {
+      provider: session.provider,
+      apiKey: session.apiKey,
+      model: session.model,
+      sessionToken: session.token,
+    }
+    byokSessionInfo = {
+      provider: session.provider,
+      model: session.model,
+      maskedKey: session.maskedKey,
+    }
+  }
+
   if (!content) {
     return NextResponse.json(
       { error: "content is required" },
@@ -220,6 +250,7 @@ export async function POST(req: Request) {
   }
 
   try {
+    return await byokStorage.run(byokConfig, async () => {
     const since = new Date(Date.now() - 60_000).toISOString()
     const { count, error: rateLimitError } = await supabase
       .from("review_runs")
@@ -476,9 +507,15 @@ export async function POST(req: Request) {
             governance: agenticResult.governance,
           }
         : {}),
+      ...(byokSessionInfo ? { byok: { active: true, ...byokSessionInfo } } : {}),
+    })
     })
   } catch (error) {
     console.error("Review API failed:", error)
     return NextResponse.json({ error: messageFrom(error) }, { status: 500 })
+  } finally {
+    if (byokSessionToken) {
+      releaseByokSession(byokSessionToken)
+    }
   }
 }

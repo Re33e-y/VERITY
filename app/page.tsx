@@ -478,6 +478,96 @@ export default function LandingPage() {
     }
   ])
 
+  // Judge BYOK (Bring Your Own API Key) state
+  const [byokPanelOpen, setByokPanelOpen] = useState(false)
+  const [byokProvider, setByokProvider] = useState<"gemini" | "groq" | "openrouter">("gemini")
+  const [byokModel, setByokModel] = useState("gemini-2.5-flash")
+  const [byokApiKey, setByokApiKey] = useState("")
+  const [byokShowKey, setByokShowKey] = useState(false)
+  const [byokLoading, setByokLoading] = useState(false)
+  const [byokError, setByokError] = useState<string | null>(null)
+  const [byokSession, setByokSession] = useState<{
+    token: string
+    provider: string
+    model: string
+    maskedKey: string
+    expiresAt: number
+  } | null>(null)
+
+  const BYOK_PROVIDER_MODELS: Record<string, { id: string; label: string; recommended?: boolean }[]> = {
+    gemini: [
+      { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash", recommended: true },
+      { id: "gemini-1.5-flash", label: "Gemini 1.5 Flash" },
+      { id: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
+    ],
+    groq: [
+      { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B Versatile", recommended: true },
+      { id: "llama-3.1-8b-instant", label: "Llama 3.1 8B Instant" },
+      { id: "mixtral-8x7b-32768", label: "Mixtral 8x7B" },
+    ],
+    openrouter: [
+      { id: "google/gemini-2.5-flash", label: "Google Gemini 2.5 Flash", recommended: true },
+      { id: "meta-llama/llama-3.3-70b-instruct", label: "Llama 3.3 70B Instruct" },
+      { id: "anthropic/claude-3.5-haiku", label: "Claude 3.5 Haiku" },
+    ],
+  }
+
+  async function handleConnectByok() {
+    if (!byokApiKey.trim()) {
+      setByokError("Please enter your API key")
+      return
+    }
+    setByokLoading(true)
+    setByokError(null)
+    try {
+      const res = await fetch("/api/byok/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: byokProvider,
+          apiKey: byokApiKey.trim(),
+          model: byokModel,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to validate credentials")
+      }
+      setByokSession({
+        token: data.sessionToken,
+        provider: data.provider,
+        model: data.model,
+        maskedKey: data.maskedKey,
+        expiresAt: data.expiresAt,
+      })
+      setByokApiKey("") // Wipe key from component state immediately
+      setByokPanelOpen(false)
+    } catch (err) {
+      setByokError((err as Error).message || "Connection failed")
+    } finally {
+      setByokLoading(false)
+    }
+  }
+
+  async function handleDisconnectByok() {
+    if (!byokSession) return
+    try {
+      await fetch("/api/byok/disconnect", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-byok-session-token": byokSession.token,
+        },
+        body: JSON.stringify({ sessionToken: byokSession.token }),
+      })
+    } catch {
+      // silent
+    }
+    setByokSession(null)
+    setByokApiKey("")
+    setByokError(null)
+  }
+
   const loadWorkspaceData = useCallback(async (wsId: string) => {
     setWorkspaceLoading(true)
     try {
@@ -700,10 +790,12 @@ export default function LandingPage() {
         headers: { 
           "Content-Type": "application/json",
           "x-workspace-id": activeWorkspace.id,
+          ...(byokSession ? { "x-byok-session-token": byokSession.token } : {}),
         },
         body: JSON.stringify({ 
           content: text,
           workspace_id: activeWorkspace.id,
+          ...(byokSession ? { byok_session_token: byokSession.token } : {}),
         }),
       })
 
@@ -891,6 +983,33 @@ VERITY
       <span style={{"background":"#FACC15","color":"#0E0E10","fontSize":"10px","fontWeight":"800","padding":"2px 6px","marginLeft":"4px","letterSpacing":"0.05em"}}>DEMO</span>
     )}
   </div>
+
+  <button
+    type="button"
+    onClick={() => {
+      setByokPanelOpen(!byokPanelOpen)
+      setActiveView("workspace")
+      scrollToAudit()
+    }}
+    className="neo-btn"
+    style={{
+      "background": byokSession ? "#22C55E" : "#18181B",
+      "color": byokSession ? "#0E0E10" : "#F4F2EC",
+      "border": "1.5px solid #0E0E10",
+      "boxShadow": "2px 2px 0 #0E0E10",
+      "padding": "6px 12px",
+      "fontSize": "12px",
+      "fontWeight": "700",
+      "cursor": "pointer",
+      "display": "inline-flex",
+      "alignItems": "center",
+      "gap": "6px",
+    }}
+    title="Configure your own Groq, Gemini, or OpenRouter API key"
+  >
+    <span>{byokSession ? "●" : "⚡"}</span>
+    <span>{byokSession ? `BYOK: ${byokSession.provider.toUpperCase()}` : "Judge BYOK"}</span>
+  </button>
 
   <a
     href="#try"
@@ -1512,6 +1631,194 @@ VERITY
     {/* VIEW 1: Interactive Audit Workspace */}
     {activeView === "workspace" && (
       <div style={{"background":"#18181B","color":"#F4F1EA","border":"2px solid #27272A","boxShadow":"8px 8px 0 #000000","padding":"32px","display":"flex","flexDirection":"column","gap":"20px"}}>
+        
+        {/* Judge BYOK (Bring Your Own API Key) Banner & Configuration Panel */}
+        <div style={{
+          "background": byokSession ? "#0E0E10" : "#18181B",
+          "border": byokSession ? "1.5px solid #22C55E" : "1.5px solid #3F3F46",
+          "padding": "18px 20px",
+          "boxShadow": byokSession ? "4px 4px 0 #22C55E" : "3px 3px 0 #0E0E10"
+        }}>
+          <div style={{"display":"flex","flexWrap":"wrap","justifyContent":"space-between","alignItems":"center","gap":"12px"}}>
+            <div style={{"display":"flex","alignItems":"center","gap":"12px"}}>
+              <span style={{"width":"10px","height":"10px","borderRadius":"50%","background": byokSession ? "#22C55E" : "#71717A", "flexShrink":0}} />
+              <div>
+                <div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","fontWeight":"700","letterSpacing":"0.08em","color": byokSession ? "#22C55E" : "#CFCAC0","textTransform":"uppercase"}}>
+                  {byokSession ? "JUDGE BYOK ACTIVE (ISOLATED SESSION)" : "JUDGE AI PROVIDER CONFIGURATION (BRING YOUR OWN KEY)"}
+                </div>
+                <div style={{"fontSize":"14px","color":"#F4F2EC","fontWeight":"600","marginTop":"2px"}}>
+                  {byokSession 
+                    ? `Connected to ${byokSession.provider.toUpperCase()} (${byokSession.model}) · Key: ${byokSession.maskedKey}`
+                    : "Evaluating Verity live? Connect your own Google Gemini, Groq, or OpenRouter key for custom model quota."
+                  }
+                </div>
+              </div>
+            </div>
+
+            <div style={{"display":"flex","alignItems":"center","gap":"8px"}}>
+              {byokSession ? (
+                <button
+                  type="button"
+                  onClick={handleDisconnectByok}
+                  className="neo-btn"
+                  style={{"background":"#EF4444","color":"#FFFFFF","border":"1px solid #EF4444","padding":"6px 14px","fontSize":"12px","fontWeight":"700","cursor":"pointer"}}
+                >
+                  Disconnect Credentials
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setByokPanelOpen(!byokPanelOpen)}
+                  className="neo-btn"
+                  style={{"background":"#2447FF","color":"#FFFFFF","border":"1.5px solid #0E0E10","padding":"6px 14px","fontSize":"12px","fontWeight":"700","cursor":"pointer"}}
+                >
+                  {byokPanelOpen ? "▲ Hide BYOK Setup" : "⚡ Configure Provider Key →"}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Expanded BYOK Setup Form */}
+          {(!byokSession && byokPanelOpen) && (
+            <div style={{"marginTop":"16px","paddingTop":"16px","borderTop":"1px solid #27272A","display":"flex","flexDirection":"column","gap":"14px"}}>
+              <div style={{"fontSize":"13px","color":"#A1A1AA","lineHeight":"1.5"}}>
+                Credentials reside <b>strictly in volatile server memory with a 15-minute sliding TTL</b>. Keys are never saved to Supabase, localStorage, or logs. Model invocations occur server-side with zero browser SDK exposure.
+              </div>
+
+              {/* Provider Selection Tabs */}
+              <div style={{"display":"flex","flexDirection":"column","gap":"6px"}}>
+                <label style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","fontWeight":"700","color":"#CFCAC0"}}>
+                  SELECT AI PROVIDER:
+                </label>
+                <div style={{"display":"flex","flexWrap":"wrap","gap":"8px"}}>
+                  {[
+                    { id: "gemini", label: "Google Gemini", hint: "gemini-2.5-flash / flash-lite" },
+                    { id: "groq", label: "Groq (Fast Llama)", hint: "llama-3.3-70b-versatile" },
+                    { id: "openrouter", label: "OpenRouter", hint: "multi-model routing" },
+                  ].map((p) => {
+                    const isSelected = byokProvider === p.id
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => {
+                          setByokProvider(p.id as any)
+                          const defaultM = BYOK_PROVIDER_MODELS[p.id]?.[0]?.id || ""
+                          setByokModel(defaultM)
+                          setByokError(null)
+                        }}
+                        style={{
+                          "padding":"8px 14px",
+                          "background": isSelected ? "#2447FF" : "#0E0E10",
+                          "color": isSelected ? "#FFFFFF" : "#CFCAC0",
+                          "border": isSelected ? "1.5px solid #2447FF" : "1px solid #3F3F46",
+                          "cursor":"pointer",
+                          "fontWeight":"700",
+                          "fontSize":"13px",
+                          "display":"flex",
+                          "flexDirection":"column",
+                          "alignItems":"flex-start",
+                          "gap":"2px"
+                        }}
+                      >
+                        <span>{p.label}</span>
+                        <span style={{"fontSize":"10px","fontWeight":"400","color": isSelected ? "#E0E7FF" : "#71717A"}}>{p.hint}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Model Selection & API Key Input */}
+              <div style={{"display":"flex","flexWrap":"wrap","gap":"14px","alignItems":"flex-end"}}>
+                <div style={{"flex":"1 1 200px","display":"flex","flexDirection":"column","gap":"6px"}}>
+                  <label style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","fontWeight":"700","color":"#CFCAC0"}}>
+                    MODEL:
+                  </label>
+                  <select
+                    value={byokModel}
+                    onChange={(e) => setByokModel(e.target.value)}
+                    style={{
+                      "background":"#0E0E10",
+                      "color":"#FFFFFF",
+                      "border":"1px solid #3F3F46",
+                      "padding":"10px 12px",
+                      "fontSize":"13px",
+                      "fontFamily":"'Space Grotesk', system-ui, sans-serif",
+                      "outline":"none"
+                    }}
+                  >
+                    {(BYOK_PROVIDER_MODELS[byokProvider] || []).map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.label} {m.recommended ? "(Recommended)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{"flex":"2 1 300px","display":"flex","flexDirection":"column","gap":"6px"}}>
+                  <div style={{"display":"flex","justifyContent":"space-between","alignItems":"center"}}>
+                    <label style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","fontWeight":"700","color":"#CFCAC0"}}>
+                      {byokProvider.toUpperCase()} API KEY:
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setByokShowKey(!byokShowKey)}
+                      style={{"background":"transparent","border":"none","color":"#8E897E","fontSize":"11px","cursor":"pointer"}}
+                    >
+                      {byokShowKey ? "Hide key" : "Show key"}
+                    </button>
+                  </div>
+                  <input
+                    type={byokShowKey ? "text" : "password"}
+                    value={byokApiKey}
+                    onChange={(e) => setByokApiKey(e.target.value)}
+                    placeholder={
+                      byokProvider === "gemini" ? "AIzaSy..." : byokProvider === "groq" ? "gsk_..." : "sk-or-v1-..."
+                    }
+                    style={{
+                      "background":"#0E0E10",
+                      "color":"#FFFFFF",
+                      "border":"1px solid #3F3F46",
+                      "padding":"10px 12px",
+                      "fontSize":"13px",
+                      "fontFamily":"'JetBrains Mono', monospace",
+                      "outline":"none"
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleConnectByok}
+                  disabled={byokLoading || !byokApiKey.trim()}
+                  className="neo-btn"
+                  style={{
+                    "background":"#22C55E",
+                    "color":"#0E0E10",
+                    "border":"1.5px solid #0E0E10",
+                    "boxShadow":"3px 3px 0 #0E0E10",
+                    "padding":"10px 20px",
+                    "fontSize":"13px",
+                    "fontWeight":"700",
+                    "cursor":"pointer",
+                    "minHeight":"40px",
+                    "opacity": (byokLoading || !byokApiKey.trim()) ? 0.6 : 1
+                  }}
+                >
+                  {byokLoading ? "Testing Credentials..." : "Test & Connect Key →"}
+                </button>
+              </div>
+
+              {byokError && (
+                <div style={{"padding":"8px 12px","background":"rgba(239, 68, 68, 0.1)","border":"1px solid #EF4444","color":"#EF4444","fontSize":"12px","fontFamily":"'JetBrains Mono', monospace"}}>
+                  ✗ {byokError}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Sample Chips */}
         <div>
           <div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"12px","letterSpacing":"0.08em","color":"#CFCAC0","marginBottom":"10px"}}>

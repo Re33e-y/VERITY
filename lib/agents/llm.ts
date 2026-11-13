@@ -4,6 +4,7 @@
 
 import { randomUUID } from "node:crypto";
 import type { Policy } from "./types";
+import { byokStorage, redactSecrets } from "@/lib/byok/session";
 
 /**
  * Single source of truth for the LLM policy. app/api/review/route.ts imports this too,
@@ -64,7 +65,7 @@ export const resetQuotaCircuit = (): void => {
   quotaOpenUntil = 0;
 };
 
-export type ProviderKind = "gemini" | "openrouter" | "cloudflare";
+export type ProviderKind = "gemini" | "openrouter" | "cloudflare" | "groq";
 let lastProviderUsed: ProviderKind | null = null;
 const providersUsedHistory: ProviderKind[] = [];
 
@@ -91,11 +92,12 @@ async function callGeminiRaw(
   user: string,
   model: string,
   maxOutputTokens: number,
-  timeoutMs: number
+  timeoutMs: number,
+  overrideKey?: string
 ): Promise<ProviderResponse> {
-  const key = process.env.GEMINI_API_KEY;
+  const key = overrideKey || process.env.GEMINI_API_KEY;
   if (!key) throw new LlmError("disabled", "GEMINI_API_KEY is not set");
-  if (isQuotaOpen()) throw new LlmError("quota", "Gemini quota circuit is open");
+  if (!overrideKey && isQuotaOpen()) throw new LlmError("quota", "Gemini quota circuit is open");
 
   const generationConfig: Record<string, unknown> = {
     temperature: 0,
@@ -163,10 +165,12 @@ async function callOpenRouterRaw(
   system: string,
   user: string,
   maxOutputTokens: number,
-  timeoutMs: number
+  timeoutMs: number,
+  overrideKey?: string,
+  overrideModel?: string
 ): Promise<ProviderResponse> {
-  const key = process.env.OPENROUTER_API_KEY;
-  const model = process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash";
+  const key = overrideKey || process.env.OPENROUTER_API_KEY;
+  const model = overrideModel || process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash";
   if (!key) throw new LlmError("disabled", "OPENROUTER_API_KEY is not set");
 
   const ctrl = new AbortController();
@@ -226,6 +230,76 @@ async function callOpenRouterRaw(
   } catch (err) {
     if (err instanceof LlmError) throw err;
     throw new LlmError("parse", "OpenRouter returned unparseable envelope");
+  }
+}
+
+async function callGroqRaw(
+  system: string,
+  user: string,
+  apiKey: string,
+  model: string = "llama-3.3-70b-versatile",
+  maxOutputTokens: number,
+  timeoutMs: number
+): Promise<ProviderResponse> {
+  if (!apiKey) throw new LlmError("disabled", "GROQ_API_KEY is not set");
+
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let bodyText = "";
+  let status = 0;
+  try {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0,
+        max_tokens: maxOutputTokens,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+      }),
+      signal: ctrl.signal,
+    });
+    status = res.status;
+    bodyText = await res.text();
+  } catch (e) {
+    const aborted = (e as Error)?.name === "AbortError";
+    throw new LlmError(
+      aborted ? "timeout" : "http",
+      aborted ? "Groq call timed out" : `Groq request failed: ${(e as Error)?.message}`
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (status === 401 || status === 403) {
+    throw new LlmError("disabled", "Groq authentication failed (invalid API key)");
+  }
+  if (status === 429) {
+    throw new LlmError("quota", "Groq rate limited or quota exceeded");
+  }
+  if (status < 200 || status >= 300) {
+    throw new LlmError("http", `Groq HTTP ${status}`);
+  }
+
+  try {
+    const data = JSON.parse(bodyText) as {
+      choices?: { message?: { content?: string }; finish_reason?: string }[];
+    };
+    const choice = data.choices?.[0];
+    const text = choice?.message?.content?.trim() ?? "";
+    const isTruncated = choice?.finish_reason === "length";
+    if (!text) throw new LlmError("parse", "Groq returned empty output");
+    return { text, isTruncated };
+  } catch (err) {
+    if (err instanceof LlmError) throw err;
+    throw new LlmError("parse", "Groq returned unparseable envelope");
   }
 }
 
@@ -304,11 +378,21 @@ interface CallOpts<T> {
 }
 
 export async function callJson<T>(opts: CallOpts<T>): Promise<T> {
-  const hasGemini = Boolean(process.env.GEMINI_API_KEY && !isQuotaOpen());
-  const hasOpenRouter = Boolean(process.env.OPENROUTER_API_KEY);
-  const hasCloudflare = Boolean(process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN);
+  const byok = byokStorage.getStore();
+  const hasGemini = Boolean(
+    (byok?.provider === "gemini" ? byok.apiKey : process.env.GEMINI_API_KEY) && !isQuotaOpen()
+  );
+  const hasGroq = Boolean(
+    byok?.provider === "groq" ? byok.apiKey : process.env.GROQ_API_KEY
+  );
+  const hasOpenRouter = Boolean(
+    byok?.provider === "openrouter" ? byok.apiKey : process.env.OPENROUTER_API_KEY
+  );
+  const hasCloudflare = Boolean(
+    process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN
+  );
 
-  if (!hasGemini && !hasOpenRouter && !hasCloudflare) {
+  if (!hasGemini && !hasGroq && !hasOpenRouter && !hasCloudflare) {
     if (isQuotaOpen()) throw new LlmError("quota", "Gemini quota circuit is open");
     throw new LlmError("disabled", "No LLM provider is configured or available");
   }
@@ -335,23 +419,50 @@ export async function callJson<T>(opts: CallOpts<T>): Promise<T> {
     call: () => Promise<ProviderResponse>;
   }> = [];
 
-  if (process.env.GEMINI_API_KEY && !isQuotaOpen()) {
-    providerChain.push({
-      name: "gemini",
-      call: () => callGeminiRaw(system, user, model, maxOutputTokens, timeoutMs),
-    });
-  }
-  if (process.env.OPENROUTER_API_KEY) {
-    providerChain.push({
-      name: "openrouter",
-      call: () => callOpenRouterRaw(system, user, maxOutputTokens, timeoutMs),
-    });
-  }
-  if (process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN) {
-    providerChain.push({
-      name: "cloudflare",
-      call: () => callCloudflareRaw(system, user, timeoutMs),
-    });
+  if (byok) {
+    // Judge BYOK configuration takes priority
+    if (byok.provider === "gemini") {
+      providerChain.push({
+        name: "gemini",
+        call: () => callGeminiRaw(system, user, byok.model || model, maxOutputTokens, timeoutMs, byok.apiKey),
+      });
+    } else if (byok.provider === "groq") {
+      providerChain.push({
+        name: "groq",
+        call: () => callGroqRaw(system, user, byok.apiKey, byok.model || "llama-3.3-70b-versatile", maxOutputTokens, timeoutMs),
+      });
+    } else if (byok.provider === "openrouter") {
+      providerChain.push({
+        name: "openrouter",
+        call: () => callOpenRouterRaw(system, user, maxOutputTokens, timeoutMs, byok.apiKey, byok.model || "google/gemini-2.5-flash"),
+      });
+    }
+  } else {
+    // Normal system fallback chain
+    if (process.env.GEMINI_API_KEY && !isQuotaOpen()) {
+      providerChain.push({
+        name: "gemini",
+        call: () => callGeminiRaw(system, user, model, maxOutputTokens, timeoutMs),
+      });
+    }
+    if (process.env.GROQ_API_KEY) {
+      providerChain.push({
+        name: "groq",
+        call: () => callGroqRaw(system, user, process.env.GROQ_API_KEY!, process.env.GROQ_MODEL || "llama-3.3-70b-versatile", maxOutputTokens, timeoutMs),
+      });
+    }
+    if (process.env.OPENROUTER_API_KEY) {
+      providerChain.push({
+        name: "openrouter",
+        call: () => callOpenRouterRaw(system, user, maxOutputTokens, timeoutMs),
+      });
+    }
+    if (process.env.CLOUDFLARE_ACCOUNT_ID && process.env.CLOUDFLARE_API_TOKEN) {
+      providerChain.push({
+        name: "cloudflare",
+        call: () => callCloudflareRaw(system, user, timeoutMs),
+      });
+    }
   }
 
   let lastError: unknown = null;
@@ -391,9 +502,10 @@ export async function callJson<T>(opts: CallOpts<T>): Promise<T> {
     }
   }
 
-  if (lastError instanceof LlmError) throw lastError;
-  if (lastError instanceof Error) throw new LlmError("http", lastError.message);
-  throw new LlmError("http", "All LLM providers failed");
+  const rawMsg = lastError instanceof Error ? lastError.message : "All LLM providers failed";
+  const safeMsg = redactSecrets(rawMsg, byok ? [byok.apiKey] : []);
+  if (lastError instanceof LlmError) throw new LlmError(lastError.kind, safeMsg);
+  throw new LlmError("http", safeMsg);
 }
 
 /** Clean markdown code fences safely even with surrounding whitespace */
