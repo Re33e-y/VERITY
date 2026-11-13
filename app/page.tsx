@@ -913,10 +913,10 @@ export default function LandingPage() {
       `}</style>
       
 
-<div id="top" style={{"background":"#F4F2EC","color":"#0E0E10","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"17px","lineHeight":"1.5","width":"100%","overflowX":"hidden"}} data-canvas-width="1360" data-canvas-height="4700" data-document-role="page" data-label="Landing page">
+<div id="top" style={{"background":"#F4F2EC","color":"#0E0E10","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"17px","lineHeight":"1.5","width":"100%","overflowX":"clip"}} data-canvas-width="1360" data-canvas-height="4700" data-document-role="page" data-label="Landing page">
 
 
-<header style={{"display":"flex","flexWrap":"wrap","alignItems":"center","justifyContent":"space-between","gap":"16px","padding":"16px clamp(16px, 4vw, 48px)","borderBottom":"1.5px solid #0E0E10","position":"sticky","top":0,"zIndex":50,"background":"rgba(244, 242, 236, 0.95)","backdropFilter":"blur(8px)"}}>
+<header style={{"display":"flex","flexWrap":"wrap","alignItems":"center","justifyContent":"space-between","gap":"16px","padding":"16px clamp(16px, 4vw, 48px)","borderBottom":"1.5px solid #0E0E10","position":"sticky","top":0,"zIndex":50,"background":"#F4F2EC","width":"100%"}}>
 <Link href="/" style={{"display":"flex","alignItems":"center","gap":"10px","textDecoration":"none","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"800","fontSize":"28px","letterSpacing":"-0.03em","color":"#0E0E10"}}>
 <svg viewBox="0 0 14 14" width="30" height="30" shapeRendering="crispEdges" aria-hidden="true"><g fill="#0E0E10"><rect x="4" y="0" width="6" height="1"></rect><rect x="2" y="1" width="10" height="1"></rect><rect x="1" y="2" width="12" height="10"></rect><rect x="1" y="12" width="3" height="1"></rect><rect x="5" y="12" width="4" height="1"></rect><rect x="10" y="12" width="3" height="1"></rect></g><rect x="3" y="4" width="3" height="3" fill="#2447FF"></rect><rect x="8" y="4" width="3" height="3" fill="#2447FF"></rect></svg>
 VERITY
@@ -940,13 +940,11 @@ VERITY
 </button>
 
 {/* Center clean anchor links */}
-<nav className="desktop-nav" style={{"display":"flex","gap":"24px","fontWeight":"700","fontSize":"14px","alignItems":"center"}}>
+<nav className="desktop-nav" style={{"display":"flex","gap":"28px","fontWeight":"700","fontSize":"14px","alignItems":"center"}}>
   <a href="#architecture" style={{"color":"#0E0E10","textDecoration":"none","transition":"color 0.15s ease"}}>Architecture</a>
-  <a href="#split" style={{"color":"#0E0E10","textDecoration":"none","transition":"color 0.15s ease"}}>Division</a>
   <a href="#lifecycle" style={{"color":"#0E0E10","textDecoration":"none","transition":"color 0.15s ease"}}>How It Works</a>
   <a href="#guardrails" style={{"color":"#0E0E10","textDecoration":"none","transition":"color 0.15s ease"}}>Guardrails</a>
-  <a href="#report" style={{"color":"#0E0E10","textDecoration":"none","transition":"color 0.15s ease"}}>Audit Trail</a>
-  <a href="#try" style={{"color":"#2447FF","textDecoration":"none","fontWeight":"800"}}>Live Sandbox ↓</a>
+  <a href="#try" onClick={() => { setActiveView("workspace"); scrollToAudit(); }} style={{"color":"#2447FF","textDecoration":"none","fontWeight":"800"}}>Live Audit</a>
 </nav>
 
 {/* Right controls: Workspace Selector + Primary CTA */}
@@ -1031,10 +1029,9 @@ VERITY
   <div className="mobile-menu-drawer" style={{"width":"100%","display":"flex","flexDirection":"column","gap":"12px","paddingTop":"16px","borderTop":"1.5px solid #0E0E10"}}>
     <div style={{"display":"flex","flexDirection":"column","gap":"8px","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"16px","fontWeight":"700"}}>
       <a href="#architecture" onClick={() => setMobileMenuOpen(false)} style={{"color":"#0E0E10","textDecoration":"none","padding":"6px 0"}}>Architecture</a>
-      <a href="#split" onClick={() => setMobileMenuOpen(false)} style={{"color":"#0E0E10","textDecoration":"none","padding":"6px 0"}}>Division of Labor</a>
       <a href="#lifecycle" onClick={() => setMobileMenuOpen(false)} style={{"color":"#0E0E10","textDecoration":"none","padding":"6px 0"}}>How It Works</a>
-      <a href="#guardrails" onClick={() => setMobileMenuOpen(false)} style={{"color":"#0E0E10","textDecoration":"none","padding":"6px 0"}}>Guardrails &amp; Invariants</a>
-      <a href="#report" onClick={() => setMobileMenuOpen(false)} style={{"color":"#0E0E10","textDecoration":"none","padding":"6px 0"}}>Audit Trail</a>
+      <a href="#guardrails" onClick={() => setMobileMenuOpen(false)} style={{"color":"#0E0E10","textDecoration":"none","padding":"6px 0"}}>Guardrails</a>
+      <a href="#try" onClick={() => { setActiveView("workspace"); scrollToAudit(); setMobileMenuOpen(false); }} style={{"color":"#2447FF","textDecoration":"none","padding":"6px 0"}}>Live Audit</a>
     </div>
     <a
       href="#try"
@@ -1079,20 +1076,6 @@ VERITY
 </div>
 
 <div style={{"flex":"1 1 400px","minWidth":"0","position":"relative","display":"flex","flexDirection":"column","alignItems":"center","zIndex":2}}>
-{/* Geometric Brutalist Sentinel Emblem */}
-<svg className="float" viewBox="0 0 120 120" width="130" height="130" role="img" aria-label="Verity Sentinel Emblem" style={{"position":"relative","zIndex":3,"marginBottom":"-28px","alignSelf":"flex-end","marginRight":"24px","filter":"drop-shadow(4px 4px 0px #0E0E10)"}}>
-  {/* Obsidian Faceted Prism Base */}
-  <polygon points="60,6 114,32 114,88 60,114 6,88 6,32" fill="#0E0E10" stroke="#F4F2EC" strokeWidth="2" />
-  <polygon points="60,6 114,32 60,60 6,32" fill="#18181B" />
-  <polygon points="6,32 60,60 60,114 6,88" fill="#2447FF" opacity="0.85" />
-  <polygon points="114,32 114,88 60,114 60,60" fill="#0E0E10" />
-  {/* Cyan Sensory Visor */}
-  <polygon points="35,46 85,46 75,54 45,54" fill="#00E5FF" />
-  <rect x="52" y="48" width="16" height="4" fill="#FFFFFF" />
-  {/* Emerald Invariant Core Pulse */}
-  <circle cx="60" cy="78" r="9" fill="#22C55E" stroke="#0E0E10" strokeWidth="2" />
-  <circle cx="60" cy="78" r="4" fill="#FFFFFF" />
-</svg>
 
 {/* Interactive Hero Example Card */}
 {(() => {
@@ -1101,7 +1084,13 @@ VERITY
   return (
     <div style={{"width":"100%","boxSizing":"border-box","background":"#0E0E10","color":"#F4F2EC","border":"1.5px solid #0E0E10","boxShadow":"6px 6px 0px #2447FF","padding":"24px","display":"flex","flexDirection":"column","gap":"16px","position":"relative","zIndex":"1"}}>
       <div style={{"display":"flex","justifyContent":"space-between","alignItems":"center","gap":"12px","fontFamily":"'JetBrains Mono', monospace","fontSize":"12px","letterSpacing":"0.08em","textTransform":"uppercase","color":"#CFCAC0","borderBottom":"1px solid #27272A","paddingBottom":"10px"}}>
-        <span>Finding {ex.index} of {ex.total}</span>
+        <div style={{"display":"flex","alignItems":"center","gap":"8px"}}>
+          <svg viewBox="0 0 14 14" width="16" height="16" shapeRendering="crispEdges" aria-hidden="true">
+            <g fill="#F4F2EC"><rect x="4" y="0" width="6" height="1"></rect><rect x="2" y="1" width="10" height="1"></rect><rect x="1" y="2" width="12" height="10"></rect><rect x="1" y="12" width="3" height="1"></rect><rect x="5" y="12" width="4" height="1"></rect><rect x="10" y="12" width="3" height="1"></rect></g>
+            <rect x="3" y="4" width="3" height="3" fill="#2447FF"></rect><rect x="8" y="4" width="3" height="3" fill="#2447FF"></rect>
+          </svg>
+          <span>Finding {ex.index} of {ex.total}</span>
+        </div>
         <div style={{"display":"flex","alignItems":"center","gap":"6px"}}>
           <button
             type="button"
