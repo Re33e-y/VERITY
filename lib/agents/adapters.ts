@@ -12,6 +12,7 @@ export type FindingRow = EngineFinding & {
   patch?: Patch | null
   enrichments?: SpecialistEnrichment[]
   lifecycle?: FindingLifecycle
+  requires_human_review?: boolean
 }
 
 const asRow = (value: unknown): Row => value as Row
@@ -113,15 +114,29 @@ export function makeFindingMapper(raw: RawCanon) {
       const aiNotes = [...(finding.notes ?? [])]
       const patch = finding.patch ?? null
 
+      const isHumanReviewRequired =
+        finding.requires_human_review === true ||
+        finding.category === "Legal" ||
+        finding.verdict === "Needs legal review" ||
+        finding.verdict === "unsupported" ||
+        finding.category === "Unsupported" ||
+        (original?.verdict === "Needs legal review" || original?.verdict === "Unsupported");
+
       if (original) {
         const enrichedVerdict =
           finding.category === "Legal" || finding.verdict === "Needs legal review" || finding.requires_human_review
             ? (original.verdict ?? "Needs legal review")
             : (original.verdict ?? verdictFor(finding.category));
 
+        const escalatedSeverity =
+          finding.category === "Legal" || enrichedVerdict === "Needs legal review" || enrichedVerdict === "Contradicted"
+            ? "high"
+            : original.severity;
+
         return {
           ...original,
           verdict: enrichedVerdict,
+          severity: escalatedSeverity,
           grade: original.grade === "A" ? "A" : finding.grade,
           explanation: finding.explanation || original.explanation,
           suggested_fix: finding.patch?.replacement ?? finding.suggestion ?? original.suggested_fix,
@@ -129,6 +144,7 @@ export function makeFindingMapper(raw: RawCanon) {
           patch,
           enrichments: finding.enrichments,
           lifecycle: finding.lifecycle,
+          requires_human_review: isHumanReviewRequired,
         }
       }
 
@@ -157,6 +173,7 @@ export function makeFindingMapper(raw: RawCanon) {
         patch,
         enrichments: finding.enrichments,
         lifecycle: finding.lifecycle,
+        requires_human_review: isHumanReviewRequired,
       }
     },
   }

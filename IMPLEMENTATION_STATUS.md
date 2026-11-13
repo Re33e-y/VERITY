@@ -58,3 +58,26 @@
   - [x] **Reactive Frontend Context**: Updated `app/page.tsx` so switching workspaces triggers live updates for Brand Canon, Decision History, and PolicyPulse analytics without page reloads.
   - [x] **Session Persistence**: Active workspace choice persisted via `localStorage`.
   - [x] **Visual Indicators**: Judge Demo mode clearly badged (`DEMO`), with role and description tooltips in selector.
+
+- [x] **Phase 11 — Round 3 Loose-Ends Audit, Engine Fixes & Swiss-Brutalist Polish (November 2026)**
+  - [x] **Engine Bug Fix 1**: Deduplicated overlapping findings based on character span boundaries and severity prioritization in `lib/engine/deterministic.ts`.
+  - [x] **Engine Bug Fix 2**: Segmented compound sentences across coordinating conjunctions (`and`, `while`, `but`, `whereas`, `;`) in `lib/engine/offline.ts` to independently verify sub-claims.
+  - [x] **Engine Bug Fix 3**: Handled historical parenthetical notes vs active canonical metrics in `findQuantityMismatch()` in `lib/engine/offline.ts` (resolving 30 days vs 14 days free-trial contradiction).
+  - [x] **Engine Bug Fix 4**: Fixed verdict critical violation display to output discrete counts and reflect high-severity findings accurately.
+  - [x] **Engine Bug Fix 5**: Prevented false lexical fact matches across distinct product entities using `extractEntityFromClaim()` and `hasApprovedRelationship()`.
+  - [x] **Engine Bug Fix 6**: Hardened IntentLock `verify()` in `lib/agents/remediation.ts` against superlative insertion and guarantee drift.
+  - [x] **Engine Bug Fix 7**: Standardized finding severity and human-review flags in `lib/agents/adapters.ts`.
+  - [x] **Server-Side Workspace Scoping in Review API**: Updated `app/api/review/route.ts` to scope rule and fact retrieval to `targetWorkspace`.
+  - [x] **Neo-Brutalist Editorial UI Polish**:
+    - Sticky navigation header with anchor shortcuts, workspace selector, and mobile drawer.
+    - Dot-grid textured hero background (`.hero-grid`) and geometric brutalist sentinel SVG emblem.
+    - Interactive 3-part finding example card with live prev/next pagination, simulated decisions, and cryptographic stamp.
+    - 10-step clickable lifecycle grid coupled with an interactive execution telemetry terminal.
+    - Invariant guardrail matrix with clear status tags (`CRITIC ADJUDICATION`, `GRADE A IMMUTABLE`, `CLOSED-WORLD INVARIANT`, `INTENTLOCK REJECTION`, `CIRCUIT BREAKER DEGRADED`, `HUMAN ESCALATION`).
+    - Expandable audit trail trace rows exposing telemetry payloads.
+    - Multi-agent sequential pipeline HUD and clean monochrome SVG tab icons.
+  - [x] **Verification**:
+    - `npx tsc --noEmit`: 0 errors.
+    - `npx tsx scripts/test-reproduction-fixes.mts`: 6/6 passed.
+    - `npx tsx scripts/test-agents.mts`: 26/26 passed.
+    - `npm run build`: Production build cleanly succeeded with code 0 (13/13 static and dynamic routes).

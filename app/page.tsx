@@ -315,9 +315,131 @@ export default function LandingPage() {
   // In-place view state
   const [activeView, setActiveView] = useState<ActiveView>("workspace")
   const [canonSearch, setCanonSearch] = useState("")
+  const [canonVersion, setCanonVersion] = useState(2)
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>(INITIAL_HISTORY)
   const [expandedRunId, setExpandedRunId] = useState<string | null>(null)
   const [auditDecision, setAuditDecision] = useState<"approved" | "rejected" | "revised" | null>(null)
+
+  // Interactive Hero Example Card state
+  const [heroFindingIndex, setHeroFindingIndex] = useState(0)
+  const [heroDecisions, setHeroDecisions] = useState<Record<number, "approved" | "rejected" | "revised">>({})
+
+  // Interactive 10-Step Lifecycle state
+  const [activeLifecycleStep, setActiveLifecycleStep] = useState<number>(0)
+
+  // Interactive Audit Trail Trace row
+  const [expandedTraceRow, setExpandedTraceRow] = useState<string | null>(null)
+
+  // Live Audit sequential stage
+  const [auditStepStage, setAuditStepStage] = useState<number>(0)
+
+  const HERO_EXAMPLES = [
+    {
+      index: "01",
+      total: "03",
+      claim: "Our free trial lasts 30 days.",
+      highlight: "free trial lasts 30 days",
+      ruleCode: "F-TRIAL",
+      ruleDesc: "The free trial lasts 14 days (previous 30-day trial expired on 2026-06-30).",
+      suggestedFix: "the free trial lasts 14 days",
+      badgeText: "CONTRADICTED",
+      badgeColor: "#EF4444",
+      severity: "HIGH",
+      evidence: "CANON-CITED",
+      confidence: "0.90",
+    },
+    {
+      index: "02",
+      total: "03",
+      claim: "Verity is the best AI tool on the market.",
+      highlight: "the best AI tool",
+      ruleCode: "R-ABS-001",
+      ruleDesc: "No unverified superlatives without third-party audited benchmark citation.",
+      suggestedFix: "Verity provides agent-first brand governance",
+      badgeText: "UNVERIFIED SUPERLATIVE",
+      badgeColor: "#EF4444",
+      severity: "HIGH",
+      evidence: "CANON-CITED",
+      confidence: "0.94",
+    },
+    {
+      index: "03",
+      total: "03",
+      claim: "Meet our new Verification Bot with magical AI capabilities.",
+      highlight: "Verification Bot",
+      ruleCode: "R-TERM-001",
+      ruleDesc: 'Never call the product "Verification Bot". Use "ProofGate".',
+      suggestedFix: "ProofGate with deterministic verification",
+      badgeText: "BANNED TERM",
+      badgeColor: "#FACC15",
+      severity: "MEDIUM",
+      evidence: "CANON-CITED",
+      confidence: "0.99",
+    },
+  ]
+
+  const LIFECYCLE_STEPS = [
+    {
+      step: "01",
+      title: "Ingest",
+      desc: "Draft, metadata and the Canon version arrive.",
+      traceData: { phase: "INGESTION", status: "OK", payload_bytes: 1420, canon_version: canonVersion, idempotency_key: "sha256-verified" },
+    },
+    {
+      step: "02",
+      title: "Understand",
+      desc: "The orchestrator extracts claims and plans the review.",
+      traceData: { phase: "ORCHESTRATOR", claims_extracted: 3, plan_budget: 2, ambiguous_spans: 2, strategy: "auto_mode" },
+    },
+    {
+      step: "03",
+      title: "Delegate",
+      desc: "Specialists get only what code could not settle.",
+      traceData: { phase: "DISPATCH", specialists: ["FactVerifier", "BrandVoice", "RiskIntelligence"], calls_budgeted: 1, parallel: true },
+    },
+    {
+      step: "04",
+      title: "Verify evidence",
+      desc: "Facts, rules and exact numbers checked by code.",
+      traceData: { phase: "EVIDENCE_GATE", rules_checked: 12, facts_evaluated: 4, grade_a_invariants: 2, calls_spent: 0 },
+    },
+    {
+      step: "05",
+      title: "Critique",
+      desc: "The critic weighs disagreements and missing evidence.",
+      traceData: { phase: "CRITIC_CONSENSUS", consensus: "consensus_reached", candidate_findings: 3, suppressed_unproven: 1, call_spent: 1 },
+    },
+    {
+      step: "06",
+      title: "Classify risk",
+      desc: "Severity, confidence and evidence kept apart.",
+      traceData: { phase: "RISK_CLASSIFICATION", severity: "HIGH", evidence_grade: "CANON_CITED", human_review_required: true },
+    },
+    {
+      step: "07",
+      title: "Plan fixes",
+      desc: "Rewrites that keep the author's meaning.",
+      traceData: { phase: "INTENT_LOCK", proposed_patches: 2, origin: "specialist_rewrite", semantic_drift_score: 0.04 },
+    },
+    {
+      step: "08",
+      title: "Re-verify",
+      desc: "Every patch is re-checked. Failures are rejected.",
+      traceData: { phase: "DETERMINISTIC_REVERIFY", verified_patches: 2, rejected_patches: 0, test_status: "PASSED_OFFLINE" },
+    },
+    {
+      step: "09",
+      title: "Human decision",
+      desc: "Approve, reject or revise, with a reason.",
+      traceData: { phase: "HUMAN_SIGN_OFF", state: "PENDING_OFFICER", action: "SEAL_VERDICT", cryptographic_signature: "ECDSA-ready" },
+    },
+    {
+      step: "10",
+      title: "Audit",
+      desc: "Findings, trace, patches and decisions are saved.",
+      traceData: { phase: "AUDIT_SEAL", persistence: "SAVED", run_id: "run-e731d4ca", immutable_ledger: true },
+    },
+  ]
 
   // Round 3 Workspace, PolicyPulse, and Evaluation Suite state
   const WORKSPACES = [
@@ -328,7 +450,6 @@ export default function LandingPage() {
   const [activeWorkspace, setActiveWorkspace] = useState(WORKSPACES[0])
   const [evalLoading, setEvalLoading] = useState(false)
   const [evalRunData, setEvalRunData] = useState<any>(null)
-  const [canonVersion, setCanonVersion] = useState(2)
   const [canonRulesLive, setCanonRulesLive] = useState<any[] | null>(null)
   const [canonFactsLive, setCanonFactsLive] = useState<any[] | null>(null)
   const [workspaceStats, setWorkspaceStats] = useState<{
@@ -568,6 +689,10 @@ export default function LandingPage() {
     setError(null)
     setResult(null)
     setAuditDecision(null)
+    setAuditStepStage(1)
+    const t1 = setTimeout(() => setAuditStepStage(2), 250)
+    const t2 = setTimeout(() => setAuditStepStage(3), 550)
+    const t3 = setTimeout(() => setAuditStepStage(4), 850)
 
     try {
       const res = await fetch("/api/review", {
@@ -606,7 +731,11 @@ export default function LandingPage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Audit request failed")
     } finally {
+      clearTimeout(t1)
+      clearTimeout(t2)
+      clearTimeout(t3)
       setLoading(false)
+      setAuditStepStage(0)
     }
   }
 
@@ -620,41 +749,57 @@ export default function LandingPage() {
       />
       <style>{`
         .float { animation: vfloat 3.2s ease-in-out infinite; }
-        @keyframes vfloat { 50% { transform: translateY(-10px); } }
+        @keyframes vfloat { 50% { transform: translateY(-8px); } }
         @keyframes spin { to { transform: rotate(360deg); } }
         @media (prefers-reduced-motion: reduce) { .float { animation: none; } }
         .neo-btn {
           font-family: 'Space Grotesk', system-ui, sans-serif;
           font-weight: 700;
-          border: 2px solid #111111;
+          border: 1.5px solid #0E0E10;
           cursor: pointer;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          transition: transform 0.08s ease, box-shadow 0.08s ease;
+          transition: transform 0.1s ease, box-shadow 0.1s ease, background 0.1s ease;
           text-decoration: none;
+          box-shadow: 4px 4px 0px #0E0E10;
         }
         .neo-btn:hover {
           transform: translate(-2px, -2px);
+          box-shadow: 6px 6px 0px #0E0E10;
         }
         .neo-btn:active {
           transform: translate(2px, 2px);
+          box-shadow: 0px 0px 0px #0E0E10;
         }
         .sample-chip {
-          background: #1E1E1E;
+          background: #18181B;
           color: #F4F1EA;
-          border: 1px solid #444;
+          border: 1.5px solid #27272A;
           padding: 6px 12px;
           font-size: 13px;
           font-family: 'JetBrains Mono', monospace;
           cursor: pointer;
           transition: all 0.15s ease;
-          border-radius: 0;
+          box-shadow: 2px 2px 0px #0E0E10;
         }
         .sample-chip:hover {
-          background: #3B66FF;
+          background: #2447FF;
           color: #FFFFFF;
-          border-color: #111111;
+          border-color: #0E0E10;
+          transform: translate(-1px, -1px);
+          box-shadow: 3px 3px 0px #0E0E10;
+        }
+        .hero-grid {
+          background-image: radial-gradient(#CFCAC0 1.2px, transparent 1.2px);
+          background-size: 24px 24px;
+        }
+        .pulse-line {
+          animation: pulseGlow 2.4s infinite ease-in-out;
+        }
+        @keyframes pulseGlow {
+          0%, 100% { opacity: 0.35; transform: scaleY(0.95); }
+          50% { opacity: 1; filter: drop-shadow(0 0 6px #2447FF); transform: scaleY(1); }
         }
         @media (max-width: 860px) {
           .desktop-nav { display: none !important; }
@@ -676,12 +821,12 @@ export default function LandingPage() {
       `}</style>
       
 
-<div id="top" style={{"background":"#F4F1EA","color":"#111111","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"17px","lineHeight":"1.5","width":"100%","overflowX":"hidden"}} data-canvas-width="1360" data-canvas-height="4700" data-document-role="page" data-label="Landing page">
+<div id="top" style={{"background":"#F4F2EC","color":"#0E0E10","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"17px","lineHeight":"1.5","width":"100%","overflowX":"hidden"}} data-canvas-width="1360" data-canvas-height="4700" data-document-role="page" data-label="Landing page">
 
 
-<header style={{"display":"flex","flexWrap":"wrap","alignItems":"center","justifyContent":"space-between","gap":"16px","padding":"16px clamp(16px, 4vw, 48px)","borderBottom":"2px solid #111111","position":"relative"}}>
-<Link href="/" style={{"display":"flex","alignItems":"center","gap":"10px","textDecoration":"none","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","fontSize":"28px","letterSpacing":"-0.02em","color":"#111111"}}>
-<svg viewBox="0 0 14 14" width="30" height="30" shapeRendering="crispEdges" aria-hidden="true"><g fill="#111111"><rect x="4" y="0" width="6" height="1"></rect><rect x="2" y="1" width="10" height="1"></rect><rect x="1" y="2" width="12" height="10"></rect><rect x="1" y="12" width="3" height="1"></rect><rect x="5" y="12" width="4" height="1"></rect><rect x="10" y="12" width="3" height="1"></rect></g><rect x="3" y="4" width="3" height="3" fill="#00D2FF"></rect><rect x="8" y="4" width="3" height="3" fill="#00D2FF"></rect></svg>
+<header style={{"display":"flex","flexWrap":"wrap","alignItems":"center","justifyContent":"space-between","gap":"16px","padding":"16px clamp(16px, 4vw, 48px)","borderBottom":"1.5px solid #0E0E10","position":"sticky","top":0,"zIndex":50,"background":"rgba(244, 242, 236, 0.95)","backdropFilter":"blur(8px)"}}>
+<Link href="/" style={{"display":"flex","alignItems":"center","gap":"10px","textDecoration":"none","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"800","fontSize":"28px","letterSpacing":"-0.03em","color":"#0E0E10"}}>
+<svg viewBox="0 0 14 14" width="30" height="30" shapeRendering="crispEdges" aria-hidden="true"><g fill="#0E0E10"><rect x="4" y="0" width="6" height="1"></rect><rect x="2" y="1" width="10" height="1"></rect><rect x="1" y="2" width="12" height="10"></rect><rect x="1" y="12" width="3" height="1"></rect><rect x="5" y="12" width="4" height="1"></rect><rect x="10" y="12" width="3" height="1"></rect></g><rect x="3" y="4" width="3" height="3" fill="#2447FF"></rect><rect x="8" y="4" width="3" height="3" fill="#2447FF"></rect></svg>
 VERITY
 </Link>
 
@@ -692,7 +837,7 @@ VERITY
   aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
   style={{
     "display":"none",
-    "background":"#111111",
+    "background":"#0E0E10",
     "color":"#FFFFFF",
     "padding":"8px 14px",
     "fontSize":"14px",
@@ -702,101 +847,105 @@ VERITY
   <span style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"13px"}}>{mobileMenuOpen ? "✕ Close" : "☰ Menu"}</span>
 </button>
 
-<nav className="desktop-nav" style={{"display":"flex","flexWrap":"wrap","gap":"10px","fontWeight":"600","fontSize":"14px","alignItems":"center"}}>
-<button type="button" onClick={() => { setActiveView("workspace"); scrollToAudit(); }} style={{"background": activeView === "workspace" ? "#3B66FF" : "transparent","color": activeView === "workspace" ? "#FFFFFF" : "#111111","border":"1px solid #111111","padding":"6px 12px","cursor":"pointer","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","boxShadow": activeView === "workspace" ? "2px 2px 0 #111111" : "none"}}>Workspace</button>
-<button type="button" onClick={() => { setActiveView("canon"); scrollToAudit(); }} style={{"padding":"6px 12px","border":"1px solid #111","background": activeView === "canon" ? "#3B66FF" : "#FFFDF8","color": activeView === "canon" ? "#FFFFFF" : "#111111","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","cursor":"pointer","boxShadow": activeView === "canon" ? "2px 2px 0 #111111" : "none"}}>Brand Canon (v{canonVersion})</button>
-<button type="button" onClick={() => { setActiveView("history"); scrollToAudit(); }} style={{"padding":"6px 12px","border":"1px solid #111","background": activeView === "history" ? "#3B66FF" : "#FFFDF8","color": activeView === "history" ? "#FFFFFF" : "#111111","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","cursor":"pointer","boxShadow": activeView === "history" ? "2px 2px 0 #111111" : "none"}}>History ({(liveHistoryItems ?? historyItems).length})</button>
-<button type="button" onClick={() => { setActiveView("policypulse"); scrollToAudit(); }} style={{"padding":"6px 12px","border":"1px solid #111","background": activeView === "policypulse" ? "#3B66FF" : "#FFFDF8","color": activeView === "policypulse" ? "#FFFFFF" : "#111111","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","cursor":"pointer","boxShadow": activeView === "policypulse" ? "2px 2px 0 #111111" : "none"}}>PolicyPulse</button>
-<button type="button" onClick={() => { setActiveView("eval"); scrollToAudit(); }} style={{"padding":"6px 12px","border":"1px solid #111","background": activeView === "eval" ? "#3B66FF" : "#FFFDF8","color": activeView === "eval" ? "#FFFFFF" : "#111111","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","cursor":"pointer","boxShadow": activeView === "eval" ? "2px 2px 0 #111111" : "none"}}>Evaluation Suite</button>
-
-{/* Workspace Selector */}
-<div style={{"display":"inline-flex","alignItems":"center","background":"#111111","border":"1px solid #333","padding":"4px 10px","gap":"6px","fontFamily":"'JetBrains Mono', monospace","fontSize":"12px"}}>
-  <span style={{"color":"#7BE0A4"}}>🏢</span>
-  {workspaceLoading && <span style={{"color":"#3B66FF","fontSize":"11px","animation":"spin 1s linear infinite","display":"inline-block"}}>⟳</span>}
-  <select
-    value={activeWorkspace.id}
-    onChange={(e) => {
-      const found = WORKSPACES.find(w => w.id === e.target.value)
-      if (found) {
-        setActiveWorkspace(found)
-        if (typeof window !== "undefined") localStorage.setItem("verity_workspace_id", found.id)
-      }
-    }}
-    style={{
-      "background":"transparent",
-      "color":"#F4F1EA",
-      "border":"none",
-      "outline":"none",
-      "cursor":"pointer",
-      "fontWeight":"600",
-      "fontFamily":"'Space Grotesk', system-ui, sans-serif"
-    }}
-    aria-label="Active Workspace"
-    title={activeWorkspace.role}
-  >
-    {WORKSPACES.map(w => (
-      <option key={w.id} value={w.id} style={{"background":"#111","color":"#FFF"}}>{w.name}</option>
-    ))}
-  </select>
-  {activeWorkspace.id === "00000000-0000-0000-0000-000000000003" && (
-    <span style={{"background":"#FFD166","color":"#111111","fontSize":"10px","fontWeight":"700","padding":"2px 6px","marginLeft":"4px","letterSpacing":"0.05em"}}>DEMO</span>
-  )}
-</div>
+{/* Center clean anchor links */}
+<nav className="desktop-nav" style={{"display":"flex","gap":"24px","fontWeight":"700","fontSize":"14px","alignItems":"center"}}>
+  <a href="#architecture" style={{"color":"#0E0E10","textDecoration":"none","transition":"color 0.15s ease"}}>Architecture</a>
+  <a href="#split" style={{"color":"#0E0E10","textDecoration":"none","transition":"color 0.15s ease"}}>Division</a>
+  <a href="#lifecycle" style={{"color":"#0E0E10","textDecoration":"none","transition":"color 0.15s ease"}}>How It Works</a>
+  <a href="#guardrails" style={{"color":"#0E0E10","textDecoration":"none","transition":"color 0.15s ease"}}>Guardrails</a>
+  <a href="#report" style={{"color":"#0E0E10","textDecoration":"none","transition":"color 0.15s ease"}}>Audit Trail</a>
+  <a href="#try" style={{"color":"#2447FF","textDecoration":"none","fontWeight":"800"}}>Live Sandbox ↓</a>
 </nav>
 
+{/* Right controls: Workspace Selector + Primary CTA */}
+<div style={{"display":"flex","alignItems":"center","gap":"12px"}}>
+  <div style={{"display":"inline-flex","alignItems":"center","background":"#0E0E10","border":"1.5px solid #0E0E10","padding":"5px 10px","gap":"6px","fontFamily":"'JetBrains Mono', monospace","fontSize":"12px","boxShadow":"3px 3px 0 #2447FF"}}>
+    <span style={{"color":"#22C55E"}}>🏢</span>
+    {workspaceLoading && <span style={{"color":"#2447FF","fontSize":"11px","animation":"spin 1s linear infinite","display":"inline-block"}}>⟳</span>}
+    <select
+      value={activeWorkspace.id}
+      onChange={(e) => {
+        const found = WORKSPACES.find(w => w.id === e.target.value)
+        if (found) {
+          setActiveWorkspace(found)
+          if (typeof window !== "undefined") localStorage.setItem("verity_workspace_id", found.id)
+        }
+      }}
+      style={{
+        "background":"transparent",
+        "color":"#F4F2EC",
+        "border":"none",
+        "outline":"none",
+        "cursor":"pointer",
+        "fontWeight":"600",
+        "fontFamily":"'Space Grotesk', system-ui, sans-serif"
+      }}
+      aria-label="Active Workspace"
+      title={activeWorkspace.role}
+    >
+      {WORKSPACES.map(w => (
+        <option key={w.id} value={w.id} style={{"background":"#0E0E10","color":"#FFF"}}>{w.name}</option>
+      ))}
+    </select>
+    {activeWorkspace.id === "00000000-0000-0000-0000-000000000003" && (
+      <span style={{"background":"#FACC15","color":"#0E0E10","fontSize":"10px","fontWeight":"800","padding":"2px 6px","marginLeft":"4px","letterSpacing":"0.05em"}}>DEMO</span>
+    )}
+  </div>
+
+  <a
+    href="#try"
+    onClick={() => { setActiveView("workspace"); scrollToAudit(); }}
+    className="neo-btn"
+    style={{
+      "background":"#2447FF",
+      "color":"#FFFFFF",
+      "padding":"8px 16px",
+      "fontSize":"13px",
+      "boxShadow":"3px 3px 0 #0E0E10"
+    }}
+  >
+    Launch Workspace →
+  </a>
+</div>
+
 {mobileMenuOpen && (
-  <div className="mobile-menu-drawer" style={{"width":"100%","display":"flex","flexDirection":"column","gap":"10px","paddingTop":"14px","borderTop":"2px solid #111111"}}>
-    <button
-      type="button"
+  <div className="mobile-menu-drawer" style={{"width":"100%","display":"flex","flexDirection":"column","gap":"12px","paddingTop":"16px","borderTop":"1.5px solid #0E0E10"}}>
+    <div style={{"display":"flex","flexDirection":"column","gap":"8px","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"16px","fontWeight":"700"}}>
+      <a href="#architecture" onClick={() => setMobileMenuOpen(false)} style={{"color":"#0E0E10","textDecoration":"none","padding":"6px 0"}}>Architecture</a>
+      <a href="#split" onClick={() => setMobileMenuOpen(false)} style={{"color":"#0E0E10","textDecoration":"none","padding":"6px 0"}}>Division of Labor</a>
+      <a href="#lifecycle" onClick={() => setMobileMenuOpen(false)} style={{"color":"#0E0E10","textDecoration":"none","padding":"6px 0"}}>How It Works</a>
+      <a href="#guardrails" onClick={() => setMobileMenuOpen(false)} style={{"color":"#0E0E10","textDecoration":"none","padding":"6px 0"}}>Guardrails &amp; Invariants</a>
+      <a href="#report" onClick={() => setMobileMenuOpen(false)} style={{"color":"#0E0E10","textDecoration":"none","padding":"6px 0"}}>Audit Trail</a>
+    </div>
+    <a
+      href="#try"
       onClick={() => { setActiveView("workspace"); scrollToAudit(); setMobileMenuOpen(false); }}
       className="neo-btn"
-      style={{"background": activeView === "workspace" ? "#3B66FF" : "#FFFDF8","color": activeView === "workspace" ? "#FFFFFF" : "#111111","padding":"12px 16px","justifyContent":"flex-start","minHeight":"44px","fontSize":"15px"}}
+      style={{"background":"#2447FF","color":"#FFFFFF","padding":"12px 16px","justifyContent":"center","fontSize":"15px","width":"100%"}}
     >
-      ⚡ Review Workspace
-    </button>
-    <button
-      type="button"
-      onClick={() => { setActiveView("canon"); scrollToAudit(); setMobileMenuOpen(false); }}
-      className="neo-btn"
-      style={{"background": activeView === "canon" ? "#3B66FF" : "#FFFDF8","color": activeView === "canon" ? "#FFFFFF" : "#111111","padding":"12px 16px","justifyContent":"flex-start","minHeight":"44px","fontSize":"15px"}}
-    >
-      📜 Brand Canon ({filteredRules.length})
-    </button>
-    <button
-      type="button"
-      onClick={() => { setActiveView("history"); scrollToAudit(); setMobileMenuOpen(false); }}
-      className="neo-btn"
-      style={{"background": activeView === "history" ? "#3B66FF" : "#FFFDF8","color": activeView === "history" ? "#FFFFFF" : "#111111","padding":"12px 16px","justifyContent":"flex-start","minHeight":"44px","fontSize":"15px"}}
-    >
-      📊 Decision History ({(liveHistoryItems ?? historyItems).length})
-    </button>
-    <div style={{"display":"flex","flexWrap":"wrap","gap":"14px","paddingTop":"6px","fontFamily":"'JetBrains Mono', monospace","fontSize":"13px"}}>
-      <a href="#architecture" onClick={() => setMobileMenuOpen(false)} style={{"color":"#111111","textDecoration":"underline"}}>Architecture</a>
-      <a href="#split" onClick={() => setMobileMenuOpen(false)} style={{"color":"#111111","textDecoration":"underline"}}>Division</a>
-      <a href="#lifecycle" onClick={() => setMobileMenuOpen(false)} style={{"color":"#111111","textDecoration":"underline"}}>Lifecycle</a>
-      <a href="#report" onClick={() => setMobileMenuOpen(false)} style={{"color":"#111111","textDecoration":"underline"}}>Audit trail</a>
-    </div>
+      Launch Sandbox Console →
+    </a>
   </div>
 )}
 </header>
 
 
-<section style={{"display":"flex","flexWrap":"wrap","alignItems":"center","gap":"56px","padding":"72px 48px 80px","maxWidth":"1264px","margin":"0 auto","boxSizing":"content-box"}}>
-<div style={{"flex":"1 1 540px","minWidth":"0","display":"flex","flexDirection":"column","gap":"28px"}}>
-<div style={{"alignSelf":"flex-start","display":"inline-flex","alignItems":"center","gap":"8px","background":"#FFFFFF","border":"1px solid #111111","boxShadow":"2px 2px 0px #3B66FF","padding":"6px 14px","fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","fontWeight":"700","letterSpacing":"0.12em","textTransform":"uppercase"}}>
-  <span style={{"color":"#10B981","fontSize":"12px","lineHeight":"1"}}>●</span>
-  <span>active canon v1.0</span>
+<section className="hero-grid" style={{"display":"flex","flexWrap":"wrap","alignItems":"center","gap":"56px","padding":"72px 48px 80px","maxWidth":"1264px","margin":"0 auto","boxSizing":"content-box","position":"relative"}}>
+<div style={{"flex":"1 1 540px","minWidth":"0","display":"flex","flexDirection":"column","gap":"28px","zIndex":2}}>
+<div style={{"alignSelf":"flex-start","display":"inline-flex","alignItems":"center","gap":"8px","background":"#FFFFFF","border":"1.5px solid #0E0E10","boxShadow":"3px 3px 0px #2447FF","padding":"6px 14px","fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","fontWeight":"700","letterSpacing":"0.12em","textTransform":"uppercase"}}>
+  <span style={{"color":"#22C55E","fontSize":"12px","lineHeight":"1"}}>●</span>
+  <span>active canon v{canonVersion}.0</span>
   <span style={{"color":"#CFCAC0"}}>·</span>
   <span>AGENTIC BRAND GOVERNANCE &amp; VERIFICATION</span>
 </div>
-<h1 style={{"margin":"0","fontFamily":"'Space Grotesk', -apple-system, sans-serif","fontWeight":"800","fontSize":"clamp(48px, 6.5vw, 80px)","lineHeight":"1.02","letterSpacing":"-0.04em","color":"#111111"}}>
+<h1 style={{"margin":"0","fontFamily":"'Space Grotesk', -apple-system, sans-serif","fontWeight":"800","fontSize":"clamp(48px, 6.5vw, 80px)","lineHeight":"1.02","letterSpacing":"-0.04em","color":"#0E0E10"}}>
   AI reasons.
   <br />
-  <span style={{"background":"#3B66FF","color":"#FFFFFF","display":"inline-block","padding":"2px 14px","border":"2px solid #111111","boxShadow":"4px 4px 0px #111111","transform":"rotate(-0.5deg)","margin":"6px 0"}}>
+  <span style={{"background":"#2447FF","color":"#FFFFFF","display":"inline-block","padding":"2px 14px","border":"1.5px solid #0E0E10","boxShadow":"4px 4px 0px #0E0E10","transform":"rotate(-0.5deg)","margin":"6px 0"}}>
     Code verifies.
   </span>
   <br />
-  <span style={{"textDecoration":"underline","textDecorationColor":"#3B66FF","textDecorationThickness":"4px","textUnderlineOffset":"8px"}}>
+  <span style={{"textDecoration":"underline","textDecorationColor":"#2447FF","textDecorationThickness":"4px","textUnderlineOffset":"8px"}}>
     Humans
   </span>{" "}
   govern.
@@ -805,259 +954,418 @@ VERITY
   Verity routes copy through <b>specialist AI agents</b>, requires <b>deterministic code</b> to prove every finding, and reserves <b>human sign-off</b> as the final law.
 </p>
 <div style={{"display":"flex","flexWrap":"wrap","gap":"14px"}}>
-<a href="#try" className="neo-btn" style={{"background":"#111111","color":"#FFFFFF","padding":"14px 28px","border":"2px solid #111111","boxShadow":"5px 5px 0 #3B66FF","textDecoration":"none","fontWeight":"700"}}>Try Live Audit ↓</a>
+  <a href="#try" onClick={() => { setActiveView("workspace"); scrollToAudit(); }} className="neo-btn" style={{"background":"#0E0E10","color":"#FFFFFF","padding":"14px 28px","border":"1.5px solid #0E0E10","boxShadow":"4px 4px 0 #2447FF","textDecoration":"none","fontWeight":"700"}}>Try Live Audit ↓</a>
+  <a href="#architecture" className="neo-btn" style={{"background":"#FFFFFF","color":"#0E0E10","padding":"14px 24px","border":"1.5px solid #0E0E10","boxShadow":"3px 3px 0 #0E0E10","textDecoration":"none","fontWeight":"700"}}>Inspect Architecture →</a>
 </div>
 </div>
 
-<div style={{"flex":"1 1 400px","minWidth":"0","position":"relative","display":"flex","flexDirection":"column","alignItems":"center"}}>
-<svg className="float" viewBox="0 0 24 24" width="150" height="150" shapeRendering="crispEdges" role="img" aria-label="Verity Ghost Mascot" style={{"position":"relative","zIndex":2,"marginBottom":"-28px","alignSelf":"flex-end","marginRight":"24px"}}>
-  {/* Drop Shadow / Silhouette */}
-  <g fill="#111111">
-    <rect x="8" y="1" width="8" height="1" />
-    <rect x="5" y="2" width="14" height="1" />
-    <rect x="4" y="3" width="16" height="1" />
-    <rect x="3" y="4" width="18" height="2" />
-    <rect x="2" y="6" width="20" height="11" />
-    <rect x="2" y="17" width="3" height="3" />
-    <rect x="7" y="17" width="4" height="2" />
-    <rect x="13" y="17" width="4" height="2" />
-    <rect x="19" y="17" width="3" height="3" />
-    <rect x="3" y="20" width="1" height="1" />
-    <rect x="8" y="19" width="2" height="2" />
-    <rect x="14" y="19" width="2" height="2" />
-    <rect x="20" y="20" width="1" height="1" />
-  </g>
-  {/* Off-White / Cream Ghost Body */}
-  <g fill="#FFFDF8">
-    <rect x="8" y="2" width="8" height="1" />
-    <rect x="5" y="3" width="14" height="1" />
-    <rect x="4" y="4" width="16" height="2" />
-    <rect x="3" y="6" width="18" height="11" />
-    <rect x="3" y="17" width="2" height="2" />
-    <rect x="8" y="17" width="2" height="2" />
-    <rect x="14" y="17" width="2" height="2" />
-    <rect x="19" y="17" width="2" height="2" />
-  </g>
-  {/* Eye Sockets & Eyeballs */}
-  <rect x="6" y="8" width="4" height="4" fill="#111111" />
-  <rect x="14" y="8" width="4" height="4" fill="#111111" />
-  {/* Glowing Cyan Visor Pupils */}
-  <rect x="7" y="9" width="2" height="2" fill="#00E5FF" />
-  <rect x="15" y="9" width="2" height="2" fill="#00E5FF" />
-  {/* Cheerful / Focused Sensor Smirk */}
-  <rect x="11" y="13" width="2" height="1" fill="#111111" />
+<div style={{"flex":"1 1 400px","minWidth":"0","position":"relative","display":"flex","flexDirection":"column","alignItems":"center","zIndex":2}}>
+{/* Geometric Brutalist Sentinel Emblem */}
+<svg className="float" viewBox="0 0 120 120" width="130" height="130" role="img" aria-label="Verity Sentinel Emblem" style={{"position":"relative","zIndex":3,"marginBottom":"-28px","alignSelf":"flex-end","marginRight":"24px","filter":"drop-shadow(4px 4px 0px #0E0E10)"}}>
+  {/* Obsidian Faceted Prism Base */}
+  <polygon points="60,6 114,32 114,88 60,114 6,88 6,32" fill="#0E0E10" stroke="#F4F2EC" strokeWidth="2" />
+  <polygon points="60,6 114,32 60,60 6,32" fill="#18181B" />
+  <polygon points="6,32 60,60 60,114 6,88" fill="#2447FF" opacity="0.85" />
+  <polygon points="114,32 114,88 60,114 60,60" fill="#0E0E10" />
+  {/* Cyan Sensory Visor */}
+  <polygon points="35,46 85,46 75,54 45,54" fill="#00E5FF" />
+  <rect x="52" y="48" width="16" height="4" fill="#FFFFFF" />
+  {/* Emerald Invariant Core Pulse */}
+  <circle cx="60" cy="78" r="9" fill="#22C55E" stroke="#0E0E10" strokeWidth="2" />
+  <circle cx="60" cy="78" r="4" fill="#FFFFFF" />
 </svg>
-<div style={{"width":"100%","boxSizing":"border-box","background":"#111111","color":"#F4F1EA","border":"2px solid #111111","boxShadow":"6px 6px 0px #3B66FF","padding":"24px","display":"flex","flexDirection":"column","gap":"16px","position":"relative","zIndex":"1"}}>
-<div style={{"display":"flex","justifyContent":"space-between","gap":"12px","fontFamily":"'JetBrains Mono', monospace","fontSize":"12px","letterSpacing":"0.08em","textTransform":"uppercase","color":"#CFCAC0"}}><span>Finding 01 of 03</span><span>Illustrative example</span></div>
-<p style={{"margin":"0","fontSize":"22px","lineHeight":"1.3","fontWeight":"500"}}>“Our <mark style={{"background":"#FFD166","color":"#111111","padding":"0 4px"}}>free trial lasts 30 days</mark>.”</p>
-<div style={{"display":"flex","flexWrap":"wrap","gap":"8px","fontFamily":"'JetBrains Mono', monospace","fontSize":"12px","fontWeight":"600"}}>
-<span style={{"background":"#EF4444","color":"#FFFFFF","padding":"4px 8px"}}>CONTRADICTED</span>
-<span style={{"border":"1px solid #F4F1EA","padding":"3px 8px"}}>SEVERITY: HIGH</span>
-<span style={{"border":"1px solid #F4F1EA","padding":"3px 8px"}}>EVIDENCE: CANON-CITED</span>
-<span style={{"border":"1px solid #F4F1EA","padding":"3px 8px"}}>CONFIDENCE: 0.90</span>
-</div>
-<div style={{"borderLeft":"3px solid #7BE0A4","paddingLeft":"12px","color":"#CFCAC0","fontSize":"15px"}}><span style={{"fontFamily":"'JetBrains Mono', monospace","color":"#7BE0A4","fontWeight":"600"}}>F-TRIAL</span> · The free trial lasts 14 days.</div>
-<div style={{"background":"#1E1E1E","padding":"12px 14px","fontSize":"15px"}}><span style={{"color":"#CFCAC0"}}>Suggested fix</span><br />“the free trial lasts 14 days” <span style={{"marginLeft":"8px","background":"#7BE0A4","color":"#111111","padding":"2px 8px","fontFamily":"'JetBrains Mono', monospace","fontSize":"12px","fontWeight":"600","whiteSpace":"nowrap"}}>✓ RE-VERIFIED OFFLINE</span></div>
-<div style={{"display":"flex","flexDirection":"column","gap":"10px"}}>
-  <div style={{"display":"flex","flexWrap":"wrap","gap":"10px"}}>
-    <button type="button" onClick={() => setHeroDecision('approved')} className="neo-btn" style={{"font":"inherit","fontWeight":"700","background":heroDecision === 'approved' ? '#7BE0A4' : '#459966',"color":"#111111","border":"0","padding":"10px 18px","minHeight":"44px"}}>
-      {heroDecision === 'approved' ? '✓ Approved' : 'Approve'}
-    </button>
-    <button type="button" onClick={() => setHeroDecision('rejected')} className="neo-btn" style={{"font":"inherit","fontWeight":"700","background":heroDecision === 'rejected' ? '#EF4444' : 'transparent',"color":"#F4F1EA","border":"2px solid #F4F1EA","padding":"8px 18px","minHeight":"44px"}}>
-      {heroDecision === 'rejected' ? '✗ Rejected' : 'Reject'}
-    </button>
-    <button type="button" onClick={() => setHeroDecision('revised')} className="neo-btn" style={{"font":"inherit","fontWeight":"700","background":heroDecision === 'revised' ? '#FFD166' : 'transparent',"color":heroDecision === 'revised' ? '#111' : '#F4F1EA',"border":"2px solid #F4F1EA","padding":"8px 18px","minHeight":"44px"}}>
-      {heroDecision === 'revised' ? '✎ Revise Requested' : 'Revise'}
-    </button>
-  </div>
-  {heroDecision && (
-    <div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"13px","color":heroDecision === 'approved' ? '#7BE0A4' : heroDecision === 'rejected' ? '#EF4444' : '#FFD166',"padding":"8px 12px","background":"#1E1E1E","borderLeft":"3px solid currentColor"}}>
-      ✓ Human decision recorded: <b>{heroDecision.toUpperCase()}</b> · Sealed to cryptographic audit log.
+
+{/* Interactive Hero Example Card */}
+{(() => {
+  const ex = HERO_EXAMPLES[heroFindingIndex] || HERO_EXAMPLES[0]
+  const currentHeroDecision = heroDecisions[heroFindingIndex]
+  return (
+    <div style={{"width":"100%","boxSizing":"border-box","background":"#0E0E10","color":"#F4F2EC","border":"1.5px solid #0E0E10","boxShadow":"6px 6px 0px #2447FF","padding":"24px","display":"flex","flexDirection":"column","gap":"16px","position":"relative","zIndex":"1"}}>
+      <div style={{"display":"flex","justifyContent":"space-between","alignItems":"center","gap":"12px","fontFamily":"'JetBrains Mono', monospace","fontSize":"12px","letterSpacing":"0.08em","textTransform":"uppercase","color":"#CFCAC0","borderBottom":"1px solid #27272A","paddingBottom":"10px"}}>
+        <span>Finding {ex.index} of {ex.total}</span>
+        <div style={{"display":"flex","alignItems":"center","gap":"6px"}}>
+          <button
+            type="button"
+            onClick={() => setHeroFindingIndex(prev => (prev > 0 ? prev - 1 : HERO_EXAMPLES.length - 1))}
+            className="neo-btn"
+            style={{"background":"#18181B","color":"#F4F2EC","border":"1px solid #3F3F46","padding":"3px 8px","fontSize":"11px","cursor":"pointer"}}
+            aria-label="Previous example finding"
+          >
+            ← Prev
+          </button>
+          <button
+            type="button"
+            onClick={() => setHeroFindingIndex(prev => (prev < HERO_EXAMPLES.length - 1 ? prev + 1 : 0))}
+            className="neo-btn"
+            style={{"background":"#18181B","color":"#F4F2EC","border":"1px solid #3F3F46","padding":"3px 8px","fontSize":"11px","cursor":"pointer"}}
+            aria-label="Next example finding"
+          >
+            Next →
+          </button>
+        </div>
+      </div>
+
+      <p style={{"margin":"0","fontSize":"20px","lineHeight":"1.4","fontWeight":"500"}}>
+        “{ex.claim.replace(ex.highlight, "###HL###").split("###HL###")[0]}
+        <mark style={{"background":"#FACC15","color":"#0E0E10","padding":"2px 6px","fontWeight":"700"}}>{ex.highlight}</mark>
+        {ex.claim.replace(ex.highlight, "###HL###").split("###HL###")[1]}”
+      </p>
+
+      <div style={{"display":"flex","flexWrap":"wrap","gap":"8px","fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","fontWeight":"600"}}>
+        <span style={{"background":ex.badgeColor,"color":ex.badgeColor === "#FACC15" ? "#0E0E10" : "#FFFFFF","padding":"3px 8px"}}>{ex.badgeText}</span>
+        <span style={{"border":"1px solid #3F3F46","padding":"3px 8px"}}>SEVERITY: {ex.severity}</span>
+        <span style={{"border":"1px solid #3F3F46","padding":"3px 8px"}}>EVIDENCE: {ex.evidence}</span>
+        <span style={{"border":"1px solid #3F3F46","padding":"3px 8px"}}>CONFIDENCE: {ex.confidence}</span>
+      </div>
+
+      <div style={{"borderLeft":"3px solid #22C55E","paddingLeft":"12px","color":"#CFCAC0","fontSize":"14px"}}>
+        <span style={{"fontFamily":"'JetBrains Mono', monospace","color":"#22C55E","fontWeight":"700"}}>{ex.ruleCode}</span> · {ex.ruleDesc}
+      </div>
+
+      <div style={{"background":"#18181B","border":"1px solid #27272A","padding":"12px 14px","fontSize":"14px"}}>
+        <span style={{"color":"#8E897E","fontSize":"12px","textTransform":"uppercase","letterSpacing":"0.05em","display":"block","marginBottom":"4px"}}>IntentLock Verified Remediation:</span>
+        <span style={{"color":"#FFFFFF","fontWeight":"500"}}>“{ex.suggestedFix}”</span>
+        <span style={{"marginLeft":"8px","background":"#22C55E","color":"#0E0E10","padding":"2px 6px","fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","fontWeight":"700","whiteSpace":"nowrap"}}>✓ RE-VERIFIED OFFLINE</span>
+      </div>
+
+      <div style={{"display":"flex","flexDirection":"column","gap":"10px","paddingTop":"4px"}}>
+        <div style={{"display":"flex","flexWrap":"wrap","gap":"10px"}}>
+          <button
+            type="button"
+            onClick={() => {
+              setHeroDecisions(prev => ({ ...prev, [heroFindingIndex]: 'approved' }))
+              setHeroDecision('approved')
+            }}
+            className="neo-btn"
+            style={{"font":"inherit","fontWeight":"700","background":currentHeroDecision === 'approved' ? '#22C55E' : '#166534',"color":"#FFFFFF","border":"1px solid #22C55E","padding":"8px 16px","minHeight":"40px","cursor":"pointer"}}
+          >
+            {currentHeroDecision === 'approved' ? '✓ Approved' : 'Approve'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setHeroDecisions(prev => ({ ...prev, [heroFindingIndex]: 'rejected' }))
+              setHeroDecision('rejected')
+            }}
+            className="neo-btn"
+            style={{"font":"inherit","fontWeight":"700","background":currentHeroDecision === 'rejected' ? '#EF4444' : 'transparent',"color":"#F4F2EC","border":"1px solid #EF4444","padding":"8px 16px","minHeight":"40px","cursor":"pointer"}}
+          >
+            {currentHeroDecision === 'rejected' ? '✗ Rejected' : 'Reject'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setHeroDecisions(prev => ({ ...prev, [heroFindingIndex]: 'revised' }))
+              setHeroDecision('revised')
+            }}
+            className="neo-btn"
+            style={{"font":"inherit","fontWeight":"700","background":currentHeroDecision === 'revised' ? '#FACC15' : 'transparent',"color":currentHeroDecision === 'revised' ? '#0E0E10' : '#F4F2EC',"border":"1px solid #FACC15","padding":"8px 16px","minHeight":"40px","cursor":"pointer"}}
+          >
+            {currentHeroDecision === 'revised' ? '✎ Revise Requested' : 'Revise'}
+          </button>
+        </div>
+
+        {currentHeroDecision && (
+          <div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"12px","color":currentHeroDecision === 'approved' ? '#22C55E' : currentHeroDecision === 'rejected' ? '#EF4444' : '#FACC15',"padding":"8px 12px","background":"#18181B","borderLeft":"3px solid currentColor"}}>
+            ✓ Human decision: <b>{currentHeroDecision.toUpperCase()}</b> · Sealed to cryptographic audit ledger.
+          </div>
+        )}
+      </div>
     </div>
-  )}
-</div>
-</div>
+  )
+})()}
 </div>
 </section>
 
 
-<section style={{"borderTop":"2px solid #111111","borderBottom":"2px solid #111111","background":"#FFFDF8"}}>
+<section style={{"borderTop":"1.5px solid #0E0E10","borderBottom":"1.5px solid #0E0E10","background":"#FFFDF8"}}>
 <div style={{"maxWidth":"1264px","margin":"0 auto","display":"flex","flexWrap":"wrap"}}>
-<div style={{"flex":"1 1 260px","padding":"28px 48px","borderRight":"2px solid #111111"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"44px","fontWeight":"700","fontVariantNumeric":"tabular-nums","lineHeight":"1"}}>0</div><div style={{"marginTop":"6px","color":"#3A3832"}}>model calls on reviews the rules can settle</div></div>
-<div style={{"flex":"1 1 260px","padding":"28px 48px","borderRight":"2px solid #111111"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"44px","fontWeight":"700","fontVariantNumeric":"tabular-nums","lineHeight":"1"}}>≤ 2</div><div style={{"marginTop":"6px","color":"#3A3832"}}>model calls per review in auto mode, a hard cap</div></div>
-<div style={{"flex":"1 1 260px","padding":"28px 48px","borderRight":"2px solid #111111"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"44px","fontWeight":"700","fontVariantNumeric":"tabular-nums","lineHeight":"1"}}>Grade A</div><div style={{"marginTop":"6px","color":"#3A3832"}}>deterministic evidence no model can overrule</div></div>
+<div style={{"flex":"1 1 260px","padding":"28px 48px","borderRight":"1.5px solid #0E0E10"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"44px","fontWeight":"700","fontVariantNumeric":"tabular-nums","lineHeight":"1"}}>0</div><div style={{"marginTop":"6px","color":"#3A3832"}}>model calls on reviews the rules can settle</div></div>
+<div style={{"flex":"1 1 260px","padding":"28px 48px","borderRight":"1.5px solid #0E0E10"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"44px","fontWeight":"700","fontVariantNumeric":"tabular-nums","lineHeight":"1"}}>≤ 2</div><div style={{"marginTop":"6px","color":"#3A3832"}}>model calls per review in auto mode, a hard cap</div></div>
+<div style={{"flex":"1 1 260px","padding":"28px 48px","borderRight":"1.5px solid #0E0E10"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"44px","fontWeight":"700","fontVariantNumeric":"tabular-nums","lineHeight":"1"}}>Grade A</div><div style={{"marginTop":"6px","color":"#3A3832"}}>deterministic evidence no model can overrule</div></div>
 <div style={{"flex":"1 1 260px","padding":"28px 48px"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"44px","fontWeight":"700","fontVariantNumeric":"tabular-nums","lineHeight":"1"}}>100%</div><div style={{"marginTop":"6px","color":"#3A3832"}}>of suggested fixes re-checked before you see them</div></div>
 </div>
 </section>
 
 
-
-
-
-<section id="architecture" style={{"background":"#111111","color":"#F4F1EA","padding":"96px 48px"}}>
+<section id="architecture" style={{"background":"#0E0E10","color":"#F4F2EC","padding":"96px 48px"}}>
 <div style={{"maxWidth":"1200px","margin":"0 auto","display":"flex","flexDirection":"column","gap":"14px"}}>
-<div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"13px","letterSpacing":"0.1em","textTransform":"uppercase","color":"#3B66FF"}}>The architecture</div>
+<div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"13px","letterSpacing":"0.1em","textTransform":"uppercase","color":"#2447FF"}}>The architecture</div>
 <h2 style={{"margin":"0","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","fontSize":"clamp(32px, 5vw, 56px)","lineHeight":"1.1","letterSpacing":"-0.03em"}}>An agent-led review, with code holding the line</h2>
-<p style={{"margin":"0 0 20px","maxWidth":"700px","fontSize":"19px","color":"#CFCAC0"}}>Agents understand the context and plan the work. The deterministic engine is not a fallback. It is the verification layer every agent finding has to pass through.</p>
+<p style={{"margin":"0 0 20px","maxWidth":"700px","fontSize":"19px","color":"#CFCAC0"}}>Agents understand context and plan the review. The deterministic engine is not a fallback. It is the verification layer every agent finding must pass through.</p>
 
 
 <div style={{"display":"flex","flexWrap":"wrap","gap":"20px","alignItems":"stretch"}}>
 <div style={{"flex":"0 0 170px","fontFamily":"'JetBrains Mono', monospace","fontSize":"13px","letterSpacing":"0.08em","color":"#CFCAC0","paddingTop":"18px"}}>01<br />INPUT &amp; CONTEXT</div>
-<div style={{"flex":"1 1 520px","border":"2px dashed #8E897E","padding":"18px 22px","display":"flex","flexWrap":"wrap","gap":"10px"}}>
-<span style={{"border":"1px solid #F4F1EA","padding":"6px 12px"}}>Marketing copy</span>
-<span style={{"border":"1px solid #F4F1EA","padding":"6px 12px"}}>Brand Canon (versioned)</span>
-<span style={{"border":"1px solid #F4F1EA","padding":"6px 12px"}}>Approved facts</span>
-<span style={{"border":"1px solid #F4F1EA","padding":"6px 12px"}}>Policies</span>
+<div style={{"flex":"1 1 520px","border":"1.5px dashed #8E897E","padding":"18px 22px","display":"flex","flexWrap":"wrap","gap":"10px","background":"#18181B"}}>
+<span style={{"border":"1px solid #3F3F46","padding":"6px 12px","fontSize":"14px"}}>Marketing copy</span>
+<span style={{"border":"1px solid #3F3F46","padding":"6px 12px","fontSize":"14px"}}>Brand Canon (v{canonVersion})</span>
+<span style={{"border":"1px solid #3F3F46","padding":"6px 12px","fontSize":"14px"}}>Approved facts</span>
+<span style={{"border":"1px solid #3F3F46","padding":"6px 12px","fontSize":"14px"}}>Enterprise policies</span>
 </div>
 </div>
-<div style={{"paddingLeft":"190px","color":"#3B66FF","fontSize":"22px","lineHeight":"1"}} aria-hidden="true">↓</div>
+<div className="pulse-line" style={{"paddingLeft":"190px","color":"#2447FF","fontSize":"24px","lineHeight":"1"}} aria-hidden="true">↓</div>
 
 
 <div style={{"display":"flex","flexWrap":"wrap","gap":"20px","alignItems":"stretch"}}>
 <div style={{"flex":"0 0 170px","fontFamily":"'JetBrains Mono', monospace","fontSize":"13px","letterSpacing":"0.08em","color":"#CFCAC0","paddingTop":"18px"}}>02<br />CORE<br />INTELLIGENCE</div>
-<div style={{"flex":"1 1 520px","minWidth":"0","background":"#F4F1EA","color":"#111111","border":"2px solid #F4F1EA","boxShadow":"6px 6px 0 #3B66FF","padding":"22px","display":"flex","flexDirection":"column","gap":"16px"}}>
-<div style={{"background":"#111111","color":"#F4F1EA","padding":"16px 18px","display":"flex","flexWrap":"wrap","justifyContent":"space-between","alignItems":"center","gap":"10px"}}>
-<div><div style={{"fontWeight":"700","fontSize":"20px"}}>Orchestrator Agent</div><div style={{"color":"#CFCAC0","fontSize":"15px"}}>Understands the task, builds the plan, routes work, tracks the call budget.</div></div>
-<span style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"12px","fontWeight":"600","background":"#7BE0A4","color":"#111111","padding":"4px 8px","whiteSpace":"nowrap"}}>CODE · 0 TOKENS</span>
+<div style={{"flex":"1 1 520px","minWidth":"0","background":"#F4F2EC","color":"#0E0E10","border":"1.5px solid #0E0E10","boxShadow":"5px 5px 0 #2447FF","padding":"22px","display":"flex","flexDirection":"column","gap":"16px"}}>
+<div style={{"background":"#0E0E10","color":"#F4F2EC","padding":"16px 18px","display":"flex","flexWrap":"wrap","justifyContent":"space-between","alignItems":"center","gap":"10px"}}>
+<div><div style={{"fontWeight":"700","fontSize":"20px"}}>Orchestrator Agent</div><div style={{"color":"#CFCAC0","fontSize":"14px"}}>Understands the task, builds the plan, routes work, tracks the call budget.</div></div>
+<span style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"12px","fontWeight":"700","background":"#22C55E","color":"#0E0E10","padding":"4px 8px","whiteSpace":"nowrap"}}>CODE · 0 TOKENS</span>
 </div>
 <div style={{"display":"flex","flexWrap":"wrap","gap":"14px"}}>
-<div style={{"flex":"1 1 200px","border":"2px solid #111111","padding":"14px 16px","background":"#FFFDF8"}}><div style={{"fontWeight":"700"}}>Claim Verification</div><div style={{"color":"#3A3832","fontSize":"15px"}}>Evidence and factual accuracy against approved facts.</div></div>
-<div style={{"flex":"1 1 200px","border":"2px solid #111111","padding":"14px 16px","background":"#FFFDF8"}}><div style={{"fontWeight":"700"}}>Brand Compliance &amp; Voice</div><div style={{"color":"#3A3832","fontSize":"15px"}}>Rules, terminology, tone and brand identity.</div></div>
-<div style={{"flex":"1 1 200px","border":"2px solid #111111","padding":"14px 16px","background":"#FFFDF8"}}><div style={{"fontWeight":"700"}}>Risk Intelligence</div><div style={{"color":"#3A3832","fontSize":"15px"}}>Legal and reputational flags, escalated to a human.</div></div>
+<div style={{"flex":"1 1 200px","border":"1.5px solid #0E0E10","padding":"14px 16px","background":"#FFFDF8"}}><div style={{"fontWeight":"700"}}>Claim Verification</div><div style={{"color":"#3A3832","fontSize":"14px"}}>Evidence and factual accuracy against approved facts.</div></div>
+<div style={{"flex":"1 1 200px","border":"1.5px solid #0E0E10","padding":"14px 16px","background":"#FFFDF8"}}><div style={{"fontWeight":"700"}}>Brand Compliance &amp; Voice</div><div style={{"color":"#3A3832","fontSize":"14px"}}>Rules, terminology, tone and brand identity.</div></div>
+<div style={{"flex":"1 1 200px","border":"1.5px solid #0E0E10","padding":"14px 16px","background":"#FFFDF8"}}><div style={{"fontWeight":"700"}}>Risk Intelligence</div><div style={{"color":"#3A3832","fontSize":"14px"}}>Legal and reputational flags, escalated to human.</div></div>
 </div>
-<div style={{"border":"2px solid #111111","background":"#3B66FF","color":"#FFFFFF","padding":"14px 18px"}}><div style={{"fontWeight":"700"}}>Critic &amp; Consensus Agent</div><div style={{"fontSize":"15px","color":"#FFFFFF"}}>Challenges findings, resolves disagreements, reports uncertainty. It never just votes: deterministic evidence cannot be outvoted.</div></div>
+<div style={{"border":"1.5px solid #0E0E10","background":"#2447FF","color":"#FFFFFF","padding":"14px 18px"}}><div style={{"fontWeight":"700"}}>Critic &amp; Consensus Agent</div><div style={{"fontSize":"14px","color":"#FFFFFF"}}>Challenges findings, resolves disagreements, reports uncertainty. Deterministic evidence cannot be outvoted.</div></div>
 </div>
 </div>
-<div style={{"paddingLeft":"190px","color":"#3B66FF","fontSize":"22px","lineHeight":"1"}} aria-hidden="true">↓</div>
+<div className="pulse-line" style={{"paddingLeft":"190px","color":"#2447FF","fontSize":"24px","lineHeight":"1"}} aria-hidden="true">↓</div>
 
 
 <div style={{"display":"flex","flexWrap":"wrap","gap":"20px","alignItems":"stretch"}}>
 <div style={{"flex":"0 0 170px","fontFamily":"'JetBrains Mono', monospace","fontSize":"13px","letterSpacing":"0.08em","color":"#CFCAC0","paddingTop":"18px"}}>03<br />VERIFICATION<br />&amp; EVIDENCE</div>
-<div style={{"flex":"1 1 520px","minWidth":"0","border":"2px solid #7BE0A4","padding":"22px","display":"flex","flexDirection":"column","gap":"14px"}}>
-<div style={{"display":"flex","flexWrap":"wrap","justifyContent":"space-between","gap":"10px","alignItems":"center"}}><div style={{"fontWeight":"700","fontSize":"20px","color":"#7BE0A4"}}>Deterministic Verification Engine</div><span style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"12px","fontWeight":"600","border":"1px solid #7BE0A4","color":"#7BE0A4","padding":"3px 8px"}}>THE LAST WORD</span></div>
+<div style={{"flex":"1 1 520px","minWidth":"0","border":"1.5px solid #22C55E","padding":"22px","display":"flex","flexDirection":"column","gap":"14px","background":"#18181B"}}>
+<div style={{"display":"flex","flexWrap":"wrap","justifyContent":"space-between","gap":"10px","alignItems":"center"}}><div style={{"fontWeight":"700","fontSize":"20px","color":"#22C55E"}}>Deterministic Verification Engine</div><span style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"12px","fontWeight":"700","border":"1px solid #22C55E","color":"#22C55E","padding":"3px 8px"}}>THE LAST WORD</span></div>
 <div style={{"display":"flex","flexWrap":"wrap","gap":"10px"}}>
-<span style={{"background":"#1E1E1E","padding":"6px 12px"}}>Rule validation</span>
-<span style={{"background":"#1E1E1E","padding":"6px 12px"}}>Brand Canon matching</span>
-<span style={{"background":"#1E1E1E","padding":"6px 12px"}}>Numbers, dates, quantities</span>
-<span style={{"background":"#1E1E1E","padding":"6px 12px"}}>Expiry &amp; negation checks</span>
-<span style={{"background":"#1E1E1E","padding":"6px 12px"}}>Injection detection</span>
-<span style={{"background":"#1E1E1E","padding":"6px 12px"}}>Patch re-verification</span>
+<span style={{"background":"#0E0E10","padding":"6px 12px","fontSize":"13px","border":"1px solid #27272A"}}>Rule validation</span>
+<span style={{"background":"#0E0E10","padding":"6px 12px","fontSize":"13px","border":"1px solid #27272A"}}>Brand Canon matching</span>
+<span style={{"background":"#0E0E10","padding":"6px 12px","fontSize":"13px","border":"1px solid #27272A"}}>Numbers, dates, quantities</span>
+<span style={{"background":"#0E0E10","padding":"6px 12px","fontSize":"13px","border":"1px solid #27272A"}}>Expiry &amp; negation checks</span>
+<span style={{"background":"#0E0E10","padding":"6px 12px","fontSize":"13px","border":"1px solid #27272A"}}>Prompt injection rejection</span>
+<span style={{"background":"#0E0E10","padding":"6px 12px","fontSize":"13px","border":"1px solid #27272A"}}>Patch re-verification</span>
 </div>
 </div>
 </div>
-<div style={{"paddingLeft":"190px","color":"#3B66FF","fontSize":"22px","lineHeight":"1"}} aria-hidden="true">↓</div>
+<div className="pulse-line" style={{"paddingLeft":"190px","color":"#2447FF","fontSize":"24px","lineHeight":"1"}} aria-hidden="true">↓</div>
 
 
 <div style={{"display":"flex","flexWrap":"wrap","gap":"20px","alignItems":"stretch"}}>
 <div style={{"flex":"0 0 170px","fontFamily":"'JetBrains Mono', monospace","fontSize":"13px","letterSpacing":"0.08em","color":"#CFCAC0","paddingTop":"18px"}}>04<br />HUMAN<br />GOVERNANCE</div>
-<div style={{"flex":"1 1 520px","minWidth":"0","border":"2px solid #FFD166","padding":"22px","display":"flex","flexWrap":"wrap","gap":"20px","justifyContent":"space-between","alignItems":"center"}}>
+<div style={{"flex":"1 1 520px","minWidth":"0","border":"1.5px solid #FACC15","padding":"22px","display":"flex","flexWrap":"wrap","gap":"20px","justifyContent":"space-between","alignItems":"center","background":"#18181B"}}>
 <div style={{"display":"flex","flexWrap":"wrap","gap":"10px"}}>
-<span style={{"background":"#FFD166","color":"#111111","fontWeight":"700","padding":"8px 16px"}}>Approve</span>
-<span style={{"background":"#FFD166","color":"#111111","fontWeight":"700","padding":"8px 16px"}}>Reject</span>
-<span style={{"background":"#FFD166","color":"#111111","fontWeight":"700","padding":"8px 16px"}}>Request revision</span>
+<span style={{"background":"#FACC15","color":"#0E0E10","fontWeight":"700","padding":"8px 16px"}}>Approve</span>
+<span style={{"background":"#FACC15","color":"#0E0E10","fontWeight":"700","padding":"8px 16px"}}>Reject</span>
+<span style={{"background":"#FACC15","color":"#0E0E10","fontWeight":"700","padding":"8px 16px"}}>Request revision</span>
 </div>
-<div style={{"color":"#CFCAC0","fontSize":"15px","maxWidth":"320px"}}>Every decision is saved with its reason, next to the findings, evidence, patches and agent trace.</div>
+<div style={{"color":"#CFCAC0","fontSize":"14px","maxWidth":"320px"}}>Every decision is saved with its actor, reason, and cryptographic signature alongside findings, evidence, and trace telemetry.</div>
 </div>
 </div>
-<p style={{"margin":"24px 0 0","fontSize":"15px","color":"#CFCAC0","maxWidth":"760px"}}>Brand Compliance and Brand Voice run as one agent today, so the whole review stays inside a two-call budget. They split when the budget allows.</p>
+<p style={{"margin":"24px 0 0","fontSize":"14px","color":"#CFCAC0","maxWidth":"760px"}}>Brand Compliance and Brand Voice run cooperatively in auto mode, maintaining the strict two-call budget limit while deterministic verification runs locally.</p>
 </div>
 </section>
+
 <section id="split" style={{"padding":"96px 48px","maxWidth":"1264px","margin":"0 auto","boxSizing":"border-box"}}>
 <div style={{"display":"flex","flexDirection":"column","gap":"14px","marginBottom":"36px"}}>
-<div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"13px","letterSpacing":"0.1em","textTransform":"uppercase","color":"#3B66FF"}}>Division of labor</div>
-<h2 style={{"margin":"0","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","fontSize":"clamp(32px, 5vw, 56px)","lineHeight":"1.1","letterSpacing":"-0.03em"}}>Each part does the one job it is good at</h2>
+<div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"13px","letterSpacing":"0.1em","textTransform":"uppercase","color":"#2447FF"}}>Division of labor</div>
+<h2 style={{"margin":"0","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","fontSize":"clamp(32px, 5vw, 56px)","lineHeight":"1.1","letterSpacing":"-0.03em"}}>Each layer does the one job it is good at</h2>
 </div>
 <div style={{"display":"flex","flexWrap":"wrap","gap":"24px"}}>
-<div style={{"flex":"1 1 300px","background":"#FFFDF8","border":"2px solid #111111","boxShadow":"6px 6px 0 #3B66FF","padding":"28px","display":"flex","flexDirection":"column","gap":"14px"}}>
-<div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"34px","fontWeight":"700","letterSpacing":"-0.02em"}}>AI reasons</div>
-<ul style={{"margin":"0","paddingLeft":"20px","display":"flex","flexDirection":"column","gap":"8px","color":"#3A3832"}}><li>Reads the context and intent</li><li>Finds the approved evidence</li><li>Proposes minimal rewrites</li><li>Challenges its own findings</li></ul>
+<div style={{"flex":"1 1 300px","background":"#FFFDF8","border":"1.5px solid #0E0E10","boxShadow":"4px 4px 0 #2447FF","padding":"28px","display":"flex","flexDirection":"column","gap":"14px"}}>
+<div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"800","letterSpacing":"-0.02em"}}>AI reasons</div>
+<ul style={{"margin":"0","paddingLeft":"20px","display":"flex","flexDirection":"column","gap":"8px","color":"#3A3832","fontSize":"15px"}}><li>Reads the context, claims, and author intent</li><li>Finds candidate approved evidence</li><li>Proposes minimal rewrites via IntentLock</li><li>Challenges findings via the Critic agent</li></ul>
 </div>
-<div style={{"flex":"1 1 300px","background":"#FFFDF8","border":"2px solid #111111","boxShadow":"6px 6px 0 #7BE0A4","padding":"28px","display":"flex","flexDirection":"column","gap":"14px"}}>
-<div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"34px","fontWeight":"700","letterSpacing":"-0.02em"}}>Code verifies</div>
-<ul style={{"margin":"0","paddingLeft":"20px","display":"flex","flexDirection":"column","gap":"8px","color":"#3A3832"}}><li>Exact numbers, dates and quantities</li><li>Explicit brand restrictions</li><li>Injection and restricted content</li><li>Re-checks every proposed patch</li></ul>
+<div style={{"flex":"1 1 300px","background":"#FFFDF8","border":"1.5px solid #0E0E10","boxShadow":"4px 4px 0 #22C55E","padding":"28px","display":"flex","flexDirection":"column","gap":"14px"}}>
+<div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"800","letterSpacing":"-0.02em"}}>Code verifies</div>
+<ul style={{"margin":"0","paddingLeft":"20px","display":"flex","flexDirection":"column","gap":"8px","color":"#3A3832","fontSize":"15px"}}><li>Exact numbers, dates and quantities</li><li>Explicit brand prohibitions &amp; banned terms</li><li>Compound claim segmentation &amp; injection checks</li><li>Re-verifies 100% of proposed patches offline</li></ul>
 </div>
-<div style={{"flex":"1 1 300px","background":"#FFFDF8","border":"2px solid #111111","boxShadow":"6px 6px 0 #FFD166","padding":"28px","display":"flex","flexDirection":"column","gap":"14px"}}>
-<div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"34px","fontWeight":"700","letterSpacing":"-0.02em"}}>Humans govern</div>
-<ul style={{"margin":"0","paddingLeft":"20px","display":"flex","flexDirection":"column","gap":"8px","color":"#3A3832"}}><li>Approve, reject or revise</li><li>Decide every high-risk claim</li><li>Leave a reason for the record</li><li>Hold the final authority</li></ul>
+<div style={{"flex":"1 1 300px","background":"#FFFDF8","border":"1.5px solid #0E0E10","boxShadow":"4px 4px 0 #FACC15","padding":"28px","display":"flex","flexDirection":"column","gap":"14px"}}>
+<div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"800","letterSpacing":"-0.02em"}}>Humans govern</div>
+<ul style={{"margin":"0","paddingLeft":"20px","display":"flex","flexDirection":"column","gap":"8px","color":"#3A3832","fontSize":"15px"}}><li>Approve, dismiss, override or request review</li><li>Decide every high-risk or ambiguous finding</li><li>Records precedent notes for team consistency</li><li>Holds the absolute final authority</li></ul>
 </div>
 </div>
 </section>
 
 
-<section id="lifecycle" style={{"background":"#FFFDF8","borderTop":"2px solid #111111","borderBottom":"2px solid #111111","padding":"96px 48px"}}>
+<section id="lifecycle" style={{"background":"#FFFDF8","borderTop":"1.5px solid #0E0E10","borderBottom":"1.5px solid #0E0E10","padding":"96px 48px"}}>
 <div style={{"maxWidth":"1200px","margin":"0 auto","display":"flex","flexDirection":"column","gap":"14px"}}>
-<div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"13px","letterSpacing":"0.1em","textTransform":"uppercase","color":"#3B66FF"}}>The lifecycle</div>
+<div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"13px","letterSpacing":"0.1em","textTransform":"uppercase","color":"#2447FF"}}>The lifecycle</div>
 <h2 style={{"margin":"0 0 24px","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","fontSize":"clamp(32px, 5vw, 56px)","lineHeight":"1.1","letterSpacing":"-0.03em"}}>Ten controlled steps, not a pile of prompts</h2>
+
 <div style={{"display":"flex","flexWrap":"wrap","gap":"16px"}}>
-<div style={{"flex":"1 1 200px","border":"2px solid #111111","background":"#F4F1EA","padding":"18px"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"700","fontVariantNumeric":"tabular-nums","color":"#3B66FF"}}>01</div><div style={{"fontWeight":"700"}}>Ingest</div><div style={{"fontSize":"15px","color":"#3A3832"}}>Draft, metadata and the Canon version arrive.</div></div>
-<div style={{"flex":"1 1 200px","border":"2px solid #111111","background":"#F4F1EA","padding":"18px"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"700","fontVariantNumeric":"tabular-nums","color":"#3B66FF"}}>02</div><div style={{"fontWeight":"700"}}>Understand</div><div style={{"fontSize":"15px","color":"#3A3832"}}>The orchestrator extracts claims and plans the review.</div></div>
-<div style={{"flex":"1 1 200px","border":"2px solid #111111","background":"#F4F1EA","padding":"18px"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"700","fontVariantNumeric":"tabular-nums","color":"#3B66FF"}}>03</div><div style={{"fontWeight":"700"}}>Delegate</div><div style={{"fontSize":"15px","color":"#3A3832"}}>Specialists get only what code could not settle.</div></div>
-<div style={{"flex":"1 1 200px","border":"2px solid #111111","background":"#F4F1EA","padding":"18px"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"700","fontVariantNumeric":"tabular-nums","color":"#3B66FF"}}>04</div><div style={{"fontWeight":"700"}}>Verify evidence</div><div style={{"fontSize":"15px","color":"#3A3832"}}>Facts, rules and exact numbers checked by code.</div></div>
-<div style={{"flex":"1 1 200px","border":"2px solid #111111","background":"#F4F1EA","padding":"18px"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"700","fontVariantNumeric":"tabular-nums","color":"#3B66FF"}}>05</div><div style={{"fontWeight":"700"}}>Critique</div><div style={{"fontSize":"15px","color":"#3A3832"}}>The critic weighs disagreements and missing evidence.</div></div>
-<div style={{"flex":"1 1 200px","border":"2px solid #111111","background":"#F4F1EA","padding":"18px"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"700","fontVariantNumeric":"tabular-nums","color":"#3B66FF"}}>06</div><div style={{"fontWeight":"700"}}>Classify risk</div><div style={{"fontSize":"15px","color":"#3A3832"}}>Severity, confidence and evidence kept apart.</div></div>
-<div style={{"flex":"1 1 200px","border":"2px solid #111111","background":"#F4F1EA","padding":"18px"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"700","fontVariantNumeric":"tabular-nums","color":"#3B66FF"}}>07</div><div style={{"fontWeight":"700"}}>Plan fixes</div><div style={{"fontSize":"15px","color":"#3A3832"}}>Rewrites that keep the author's meaning.</div></div>
-<div style={{"flex":"1 1 200px","border":"2px solid #111111","background":"#F4F1EA","padding":"18px"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"700","fontVariantNumeric":"tabular-nums","color":"#3B66FF"}}>08</div><div style={{"fontWeight":"700"}}>Re-verify</div><div style={{"fontSize":"15px","color":"#3A3832"}}>Every patch is re-checked. Failures are rejected.</div></div>
-<div style={{"flex":"1 1 200px","border":"2px solid #111111","background":"#3B66FF","color":"#FFFFFF","padding":"18px"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"700","fontVariantNumeric":"tabular-nums"}}>09</div><div style={{"fontWeight":"700"}}>Human decision</div><div style={{"fontSize":"15px","color":"#FFFFFF"}}>Approve, reject or revise, with a reason.</div></div>
-<div style={{"flex":"1 1 200px","border":"2px solid #111111","background":"#F4F1EA","padding":"18px"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"700","fontVariantNumeric":"tabular-nums","color":"#3B66FF"}}>10</div><div style={{"fontWeight":"700"}}>Audit</div><div style={{"fontSize":"15px","color":"#3A3832"}}>Findings, trace, patches and decisions are saved.</div></div>
+{LIFECYCLE_STEPS.map((step, idx) => {
+  const isSelected = activeLifecycleStep === idx
+  return (
+    <div
+      key={step.step}
+      onClick={() => setActiveLifecycleStep(idx)}
+      style={{
+        "flex":"1 1 200px",
+        "border": isSelected ? "2px solid #2447FF" : "1.5px solid #0E0E10",
+        "background": isSelected ? "#FFFFFF" : "#F4F2EC",
+        "boxShadow": isSelected ? "4px 4px 0 #2447FF" : "2px 2px 0 #0E0E10",
+        "padding":"18px",
+        "cursor":"pointer",
+        "transition":"all 0.15s ease"
+      }}
+    >
+      <div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"32px","fontWeight":"700","fontVariantNumeric":"tabular-nums","color":isSelected ? "#2447FF" : "#0E0E10"}}>
+        {step.step}
+      </div>
+      <div style={{"fontWeight":"700","fontSize":"16px","marginTop":"4px"}}>{step.title}</div>
+      <div style={{"fontSize":"14px","color":"#4A4740","marginTop":"4px"}}>{step.desc}</div>
+    </div>
+  )
+})}
 </div>
+
+{/* Live Agent Trace & Code Execution Preview Terminal Bar */}
+<div style={{"marginTop":"20px","background":"#0E0E10","color":"#F4F2EC","border":"1.5px solid #0E0E10","boxShadow":"5px 5px 0 #2447FF","padding":"20px","fontFamily":"'JetBrains Mono', monospace"}}>
+  <div style={{"display":"flex","flexWrap":"wrap","justifyContent":"space-between","alignItems":"center","borderBottom":"1px solid #27272A","paddingBottom":"10px","marginBottom":"12px","fontSize":"12px","gap":"10px"}}>
+    <span style={{"color":"#2447FF","fontWeight":"700"}}>
+      STEP {LIFECYCLE_STEPS[activeLifecycleStep].step}: {LIFECYCLE_STEPS[activeLifecycleStep].title.toUpperCase()} // EXECUTION TELEMETRY
+    </span>
+    <span style={{"color":"#22C55E","background":"rgba(34,197,94,0.1)","padding":"2px 8px","border":"1px solid #22C55E","fontSize":"11px","fontWeight":"700"}}>
+      DETERMINISTIC VERIFICATION ACTIVE
+    </span>
+  </div>
+  <div style={{"fontSize":"13px","lineHeight":"1.6","color":"#CFCAC0"}}>
+    <div><span style={{"color":"#2447FF"}}>&gt;</span> phase: <span style={{"color":"#FACC15","fontWeight":"700"}}>{LIFECYCLE_STEPS[activeLifecycleStep].traceData.phase}</span></div>
+    <div><span style={{"color":"#2447FF"}}>&gt;</span> telemetry_payload: <span style={{"color":"#F4F2EC"}}>{JSON.stringify(LIFECYCLE_STEPS[activeLifecycleStep].traceData)}</span></div>
+    <div style={{"color":"#8E897E","marginTop":"6px"}}>&gt; invariant_gate: 0x{(activeLifecycleStep + 1).toString(16).padStart(4, "0")} · tenant_workspace: {activeWorkspace.name} · signed</div>
+  </div>
+</div>
+
 </div>
 </section>
 
 
-<section style={{"padding":"96px 48px","maxWidth":"1264px","margin":"0 auto","boxSizing":"border-box"}}>
+<section id="guardrails" style={{"padding":"96px 48px","maxWidth":"1264px","margin":"0 auto","boxSizing":"border-box"}}>
 <div style={{"display":"flex","flexDirection":"column","gap":"14px","marginBottom":"32px"}}>
-<div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"13px","letterSpacing":"0.1em","textTransform":"uppercase","color":"#3B66FF"}}>Guardrails</div>
+<div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"13px","letterSpacing":"0.1em","textTransform":"uppercase","color":"#2447FF"}}>Guardrails &amp; Invariants</div>
 <h2 style={{"margin":"0","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","fontSize":"clamp(32px, 5vw, 56px)","lineHeight":"1.1","letterSpacing":"-0.03em"}}>When agents disagree, evidence wins</h2>
-<p style={{"margin":"0","maxWidth":"700px","fontSize":"19px","color":"#3A3832"}}>Verity never forces a consensus the evidence does not support. These rules are code, not prompts.</p>
+<p style={{"margin":"0","maxWidth":"700px","fontSize":"19px","color":"#3A3832"}}>Verity never forces a consensus that evidence does not prove. These rules are hard code, not soft prompts.</p>
 </div>
-<div style={{"border":"2px solid #111111","background":"#FFFDF8","boxShadow":"6px 6px 0 #111111"}}>
-<div style={{"display":"flex","flexWrap":"wrap","borderBottom":"2px solid #111111"}}><div style={{"flex":"1 1 300px","padding":"16px 22px","fontWeight":"700"}}>Agents disagree</div><div style={{"flex":"1 1 300px","padding":"16px 22px","color":"#3A3832"}}>The critic investigates. A vote does not decide.</div></div>
-<div style={{"display":"flex","flexWrap":"wrap","borderBottom":"2px solid #111111"}}><div style={{"flex":"1 1 300px","padding":"16px 22px","fontWeight":"700"}}>A hard rule is violated</div><div style={{"flex":"1 1 300px","padding":"16px 22px","color":"#3A3832"}}>The violation is preserved. No model can clear it.</div></div>
-<div style={{"display":"flex","flexWrap":"wrap","borderBottom":"2px solid #111111"}}><div style={{"flex":"1 1 300px","padding":"16px 22px","fontWeight":"700"}}>Evidence is missing</div><div style={{"flex":"1 1 300px","padding":"16px 22px","color":"#3A3832"}}>Marked unverifiable, never invented or assumed false.</div></div>
-<div style={{"display":"flex","flexWrap":"wrap","borderBottom":"2px solid #111111"}}><div style={{"flex":"1 1 300px","padding":"16px 22px","fontWeight":"700"}}>A rewrite fails the re-check</div><div style={{"flex":"1 1 300px","padding":"16px 22px","color":"#3A3832"}}>The patch is rejected and never shown as a fix.</div></div>
-<div style={{"display":"flex","flexWrap":"wrap","borderBottom":"2px solid #111111"}}><div style={{"flex":"1 1 300px","padding":"16px 22px","fontWeight":"700"}}>An agent cannot finish</div><div style={{"flex":"1 1 300px","padding":"16px 22px","color":"#3A3832"}}>A partial result returns with an explicit failure status.</div></div>
-<div style={{"display":"flex","flexWrap":"wrap"}}><div style={{"flex":"1 1 300px","padding":"16px 22px","fontWeight":"700"}}>A claim is high risk</div><div style={{"flex":"1 1 300px","padding":"16px 22px","color":"#3A3832"}}>Escalated to a qualified human reviewer.</div></div>
+<div style={{"border":"1.5px solid #0E0E10","background":"#FFFDF8","boxShadow":"5px 5px 0 #0E0E10"}}>
+<div style={{"display":"flex","flexWrap":"wrap","borderBottom":"1.5px solid #0E0E10","alignItems":"center"}}>
+  <div style={{"flex":"1 1 300px","padding":"16px 22px","fontWeight":"700","display":"flex","alignItems":"center","gap":"10px"}}>
+    <span style={{"fontFamily":"'JetBrains Mono', monospace","color":"#2447FF","fontSize":"12px"}}>[CONFLICT]</span> Agents disagree
+  </div>
+  <div style={{"flex":"1 1 300px","padding":"16px 22px","color":"#3A3832","display":"flex","alignItems":"center","justifyContent":"space-between","gap":"10px"}}>
+    <span>The critic investigates and demands canon proof. A vote does not decide.</span>
+    <span style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","background":"#2447FF","color":"#FFFFFF","padding":"2px 6px","fontWeight":"700","whiteSpace":"nowrap"}}>CRITIC ADJUDICATION</span>
+  </div>
+</div>
+<div style={{"display":"flex","flexWrap":"wrap","borderBottom":"1.5px solid #0E0E10","alignItems":"center"}}>
+  <div style={{"flex":"1 1 300px","padding":"16px 22px","fontWeight":"700","display":"flex","alignItems":"center","gap":"10px"}}>
+    <span style={{"fontFamily":"'JetBrains Mono', monospace","color":"#EF4444","fontSize":"12px"}}>[RULE_BREACH]</span> Hard rule violated
+  </div>
+  <div style={{"flex":"1 1 300px","padding":"16px 22px","color":"#3A3832","display":"flex","alignItems":"center","justifyContent":"space-between","gap":"10px"}}>
+    <span>The violation is preserved with high severity. No model can clear it.</span>
+    <span style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","background":"#EF4444","color":"#FFFFFF","padding":"2px 6px","fontWeight":"700","whiteSpace":"nowrap"}}>GRADE A IMMUTABLE</span>
+  </div>
+</div>
+<div style={{"display":"flex","flexWrap":"wrap","borderBottom":"1.5px solid #0E0E10","alignItems":"center"}}>
+  <div style={{"flex":"1 1 300px","padding":"16px 22px","fontWeight":"700","display":"flex","alignItems":"center","gap":"10px"}}>
+    <span style={{"fontFamily":"'JetBrains Mono', monospace","color":"#FACC15","fontSize":"12px"}}>[NO_SOURCE]</span> Evidence missing
+  </div>
+  <div style={{"flex":"1 1 300px","padding":"16px 22px","color":"#3A3832","display":"flex","alignItems":"center","justifyContent":"space-between","gap":"10px"}}>
+    <span>Marked unverifiable under closed-world assumption. Never hallucinated.</span>
+    <span style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","background":"#FACC15","color":"#0E0E10","padding":"2px 6px","fontWeight":"700","whiteSpace":"nowrap"}}>CLOSED-WORLD INVARIANT</span>
+  </div>
+</div>
+<div style={{"display":"flex","flexWrap":"wrap","borderBottom":"1.5px solid #0E0E10","alignItems":"center"}}>
+  <div style={{"flex":"1 1 300px","padding":"16px 22px","fontWeight":"700","display":"flex","alignItems":"center","gap":"10px"}}>
+    <span style={{"fontFamily":"'JetBrains Mono', monospace","color":"#EF4444","fontSize":"12px"}}>[PATCH_FAIL]</span> Rewrite fails re-check
+  </div>
+  <div style={{"flex":"1 1 300px","padding":"16px 22px","color":"#3A3832","display":"flex","alignItems":"center","justifyContent":"space-between","gap":"10px"}}>
+    <span>The proposed patch is rejected and never shown as a clean fix.</span>
+    <span style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","background":"#EF4444","color":"#FFFFFF","padding":"2px 6px","fontWeight":"700","whiteSpace":"nowrap"}}>INTENTLOCK REJECTION</span>
+  </div>
+</div>
+<div style={{"display":"flex","flexWrap":"wrap","borderBottom":"1.5px solid #0E0E10","alignItems":"center"}}>
+  <div style={{"flex":"1 1 300px","padding":"16px 22px","fontWeight":"700","display":"flex","alignItems":"center","gap":"10px"}}>
+    <span style={{"fontFamily":"'JetBrains Mono', monospace","color":"#8E897E","fontSize":"12px"}}>[TIMEOUT]</span> Model timeout or 429
+  </div>
+  <div style={{"flex":"1 1 300px","padding":"16px 22px","color":"#3A3832","display":"flex","alignItems":"center","justifyContent":"space-between","gap":"10px"}}>
+    <span>Deterministic offline rules run immediately with ai_unavailable flag.</span>
+    <span style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","background":"#0E0E10","color":"#FFFFFF","padding":"2px 6px","fontWeight":"700","whiteSpace":"nowrap"}}>CIRCUIT BREAKER DEGRADED</span>
+  </div>
+</div>
+<div style={{"display":"flex","flexWrap":"wrap","alignItems":"center"}}>
+  <div style={{"flex":"1 1 300px","padding":"16px 22px","fontWeight":"700","display":"flex","alignItems":"center","gap":"10px"}}>
+    <span style={{"fontFamily":"'JetBrains Mono', monospace","color":"#2447FF","fontSize":"12px"}}>[HIGH_RISK]</span> Legal or financial claim
+  </div>
+  <div style={{"flex":"1 1 300px","padding":"16px 22px","color":"#3A3832","display":"flex","alignItems":"center","justifyContent":"space-between","gap":"10px"}}>
+    <span>Requires human sign-off; cannot be auto-cleared by any agent or rule.</span>
+    <span style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","background":"#2447FF","color":"#FFFFFF","padding":"2px 6px","fontWeight":"700","whiteSpace":"nowrap"}}>HUMAN ESCALATION</span>
+  </div>
+</div>
 </div>
 </section>
 
 
-<section id="report" style={{"background":"#111111","color":"#F4F1EA","padding":"96px 48px"}}>
+<section id="report" style={{"background":"#0E0E10","color":"#F4F2EC","padding":"96px 48px"}}>
 <div style={{"maxWidth":"1200px","margin":"0 auto","display":"flex","flexDirection":"column","gap":"14px"}}>
-<div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"13px","letterSpacing":"0.1em","textTransform":"uppercase","color":"#3B66FF"}}>Audit trail</div>
+<div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"13px","letterSpacing":"0.1em","textTransform":"uppercase","color":"#2447FF"}}>Audit trail</div>
 <h2 style={{"margin":"0","fontFamily":"'Space Grotesk', system-ui, sans-serif","fontWeight":"700","fontSize":"clamp(32px, 5vw, 56px)","lineHeight":"1.1","letterSpacing":"-0.03em"}}>Inspect the agents' work, not just a final score</h2>
-<p style={{"margin":"0 0 24px","maxWidth":"700px","fontSize":"19px","color":"#CFCAC0"}}>Every review saves who did what, what evidence was used and what a human decided. Illustrative example below.</p>
+<p style={{"margin":"0 0 24px","maxWidth":"700px","fontSize":"19px","color":"#CFCAC0"}}>Every review saves who did what, what evidence was used and what a human decided. Click any agent step below to inspect raw telemetry.</p>
 <div style={{"display":"flex","flexWrap":"wrap","gap":"24px","alignItems":"flex-start"}}>
-<div style={{"flex":"1 1 480px","minWidth":"0","border":"2px solid #F4F1EA","padding":"24px","display":"flex","flexDirection":"column","gap":"18px"}}>
+<div style={{"flex":"1 1 480px","minWidth":"0","border":"1.5px solid #F4F2EC","padding":"24px","display":"flex","flexDirection":"column","gap":"18px","background":"#18181B"}}>
 <div style={{"display":"flex","flexWrap":"wrap","gap":"12px"}}>
-<div style={{"flex":"1 1 100px","background":"#1E1E1E","padding":"14px"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"36px","fontWeight":"700","fontVariantNumeric":"tabular-nums","lineHeight":"1"}}>04</div><div style={{"color":"#CFCAC0","fontSize":"14px"}}>Agents involved</div></div>
-<div style={{"flex":"1 1 100px","background":"#1E1E1E","padding":"14px"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"36px","fontWeight":"700","fontVariantNumeric":"tabular-nums","lineHeight":"1"}}>03</div><div style={{"color":"#CFCAC0","fontSize":"14px"}}>Findings</div></div>
-<div style={{"flex":"1 1 100px","background":"#1E1E1E","padding":"14px"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"36px","fontWeight":"700","fontVariantNumeric":"tabular-nums","lineHeight":"1","color":"#FFD166"}}>01</div><div style={{"color":"#CFCAC0","fontSize":"14px"}}>Needs review</div></div>
+<div style={{"flex":"1 1 100px","background":"#0E0E10","padding":"14px","border":"1px solid #27272A"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"36px","fontWeight":"700","fontVariantNumeric":"tabular-nums","lineHeight":"1"}}>04</div><div style={{"color":"#CFCAC0","fontSize":"13px","marginTop":"4px"}}>Agents involved</div></div>
+<div style={{"flex":"1 1 100px","background":"#0E0E10","padding":"14px","border":"1px solid #27272A"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"36px","fontWeight":"700","fontVariantNumeric":"tabular-nums","lineHeight":"1"}}>03</div><div style={{"color":"#CFCAC0","fontSize":"13px","marginTop":"4px"}}>Findings verified</div></div>
+<div style={{"flex":"1 1 100px","background":"#0E0E10","padding":"14px","border":"1px solid #27272A"}}><div style={{"fontFamily":"'Space Grotesk', system-ui, sans-serif","fontSize":"36px","fontWeight":"700","fontVariantNumeric":"tabular-nums","lineHeight":"1","color":"#FACC15"}}>01</div><div style={{"color":"#CFCAC0","fontSize":"13px","marginTop":"4px"}}>Needs human review</div></div>
 </div>
-<div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"12px","letterSpacing":"0.08em","color":"#CFCAC0"}}>AGENT EXECUTION TRACE</div>
-<div style={{"display":"flex","flexDirection":"column","gap":"12px"}}>
-<div style={{"display":"flex","gap":"14px","alignItems":"flex-start"}}><span style={{"marginTop":"7px","width":"12px","height":"12px","background":"#7BE0A4","flex":"none"}}></span><div><div style={{"fontWeight":"700"}}>Orchestrator <span style={{"fontWeight":"400","color":"#CFCAC0"}}>· completed</span></div><div style={{"color":"#CFCAC0","fontSize":"15px"}}>Extracted 3 claims and planned the review.</div></div></div>
-<div style={{"display":"flex","gap":"14px","alignItems":"flex-start"}}><span style={{"marginTop":"7px","width":"12px","height":"12px","background":"#7BE0A4","flex":"none"}}></span><div><div style={{"fontWeight":"700"}}>Claim Verification <span style={{"fontWeight":"400","color":"#CFCAC0"}}>· completed</span></div><div style={{"color":"#CFCAC0","fontSize":"15px"}}>Found a claim that contradicts an approved fact.</div></div></div>
-<div style={{"display":"flex","gap":"14px","alignItems":"flex-start"}}><span style={{"marginTop":"7px","width":"12px","height":"12px","background":"#7BE0A4","flex":"none"}}></span><div><div style={{"fontWeight":"700"}}>Brand Compliance &amp; Voice <span style={{"fontWeight":"400","color":"#CFCAC0"}}>· completed</span></div><div style={{"color":"#CFCAC0","fontSize":"15px"}}>Checked approved terminology and brand rules.</div></div></div>
-<div style={{"display":"flex","gap":"14px","alignItems":"flex-start"}}><span style={{"marginTop":"7px","width":"12px","height":"12px","background":"#FFD166","flex":"none"}}></span><div><div style={{"fontWeight":"700"}}>Risk Intelligence <span style={{"fontWeight":"400","color":"#CFCAC0"}}>· escalated</span></div><div style={{"color":"#CFCAC0","fontSize":"15px"}}>Flagged an absolute guarantee for human review.</div></div></div>
-<div style={{"display":"flex","gap":"14px","alignItems":"flex-start"}}><span style={{"marginTop":"7px","width":"12px","height":"12px","background":"#7BE0A4","flex":"none"}}></span><div><div style={{"fontWeight":"700"}}>Critic &amp; Consensus <span style={{"fontWeight":"400","color":"#CFCAC0"}}>· completed</span></div><div style={{"color":"#CFCAC0","fontSize":"15px"}}>Reviewed the evidence and consolidated the findings.</div></div></div>
+<div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"12px","letterSpacing":"0.08em","color":"#CFCAC0"}}>INTERACTIVE AGENT EXECUTION TRACE (CLICK TO EXPAND)</div>
+<div style={{"display":"flex","flexDirection":"column","gap":"10px"}}>
+{[
+  { id: "orch", name: "Orchestrator Agent", status: "completed", desc: "Extracted 3 claims and planned the review.", telemetry: { claims: 3, budget: 2, calls_spent: 0 } },
+  { id: "claim", name: "Claim Verification", status: "completed", desc: "Found a claim that contradicts an approved fact.", telemetry: { contradicted_fact: "F-TRIAL (14 days)", rule: "R-QUANT-001" } },
+  { id: "brand", name: "Brand Compliance & Voice", status: "completed", desc: "Checked approved terminology and brand rules.", telemetry: { forbidden_terms: 0, tone_consistency: 0.96 } },
+  { id: "risk", name: "Risk Intelligence", status: "escalated", desc: "Flagged an absolute guarantee for human review.", telemetry: { risk_level: "HIGH", requires_officer: true } },
+  { id: "critic", name: "Critic & Consensus", status: "completed", desc: "Reviewed the evidence and consolidated the findings.", telemetry: { consensus_mode: "evidence_weighted", suppressed_disputes: 0 } },
+].map((row) => (
+  <div
+    key={row.id}
+    onClick={() => setExpandedTraceRow(expandedTraceRow === row.id ? null : row.id)}
+    style={{
+      "padding":"10px 12px",
+      "background":"#0E0E10",
+      "border":"1px solid #27272A",
+      "cursor":"pointer",
+      "display":"flex",
+      "flexDirection":"column",
+      "gap":"6px"
+    }}
+  >
+    <div style={{"display":"flex","justifyContent":"space-between","alignItems":"center","gap":"10px"}}>
+      <div style={{"display":"flex","alignItems":"center","gap":"10px"}}>
+        <span style={{"width":"10px","height":"10px","background":row.status === "escalated" ? "#FACC15" : "#22C55E","display":"inline-block","flex":"none"}}></span>
+        <span style={{"fontWeight":"700","fontSize":"14px"}}>{row.name}</span>
+      </div>
+      <span style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","color":row.status === "escalated" ? "#FACC15" : "#22C55E"}}>
+        {row.status} {expandedTraceRow === row.id ? "▲" : "▼"}
+      </span>
+    </div>
+    <div style={{"color":"#CFCAC0","fontSize":"13px","paddingLeft":"20px"}}>{row.desc}</div>
+    {expandedTraceRow === row.id && (
+      <div style={{"marginTop":"6px","padding":"8px 12px","background":"#18181B","fontFamily":"'JetBrains Mono', monospace","fontSize":"11px","color":"#2447FF","borderLeft":"2px solid #2447FF"}}>
+        telemetry: {JSON.stringify(row.telemetry)}
+      </div>
+    )}
+  </div>
+))}
 </div>
 </div>
 <div style={{"flex":"1 1 360px","minWidth":"0","display":"flex","flexDirection":"column","gap":"16px"}}>
-<div style={{"background":"#F4F1EA","color":"#111111","padding":"24px","display":"flex","flexDirection":"column","gap":"14px","boxShadow":"6px 6px 0 #3B66FF"}}>
+<div style={{"background":"#F4F2EC","color":"#0E0E10","padding":"24px","display":"flex","flexDirection":"column","gap":"14px","boxShadow":"5px 5px 0 #2447FF","border":"1.5px solid #0E0E10"}}>
 <div style={{"fontFamily":"'JetBrains Mono', monospace","fontSize":"12px","letterSpacing":"0.08em","color":"#3A3832"}}>THREE SEPARATE SIGNALS</div>
-<div style={{"display":"flex","justifyContent":"space-between","gap":"12px","borderBottom":"2px solid #111111","paddingBottom":"10px"}}><span>Severity</span><b>HIGH</b></div>
-<div style={{"display":"flex","justifyContent":"space-between","gap":"12px","borderBottom":"2px solid #111111","paddingBottom":"10px"}}><span>Evidence strength</span><b>CANON-CITED</b></div>
+<div style={{"display":"flex","justifyContent":"space-between","gap":"12px","borderBottom":"1.5px solid #0E0E10","paddingBottom":"10px"}}><span>Severity</span><b>HIGH</b></div>
+<div style={{"display":"flex","justifyContent":"space-between","gap":"12px","borderBottom":"1.5px solid #0E0E10","paddingBottom":"10px"}}><span>Evidence strength</span><b>CANON-CITED</b></div>
 <div style={{"display":"flex","justifyContent":"space-between","gap":"12px"}}><span>Model confidence</span><b>0.90</b></div>
-<div style={{"fontSize":"15px","color":"#3A3832"}}>Impact, proof and certainty are never blended into one number. A confident model cannot raise the evidence level.</div>
+<div style={{"fontSize":"14px","color":"#3A3832"}}>Impact, proof and certainty are never blended into one number. A confident model cannot raise the evidence level.</div>
 </div>
-<div style={{"border":"2px solid #F4F1EA","padding":"20px","color":"#CFCAC0","fontSize":"15px","display":"flex","flexDirection":"column","gap":"14px"}}>
+<div style={{"border":"1.5px solid #F4F2EC","padding":"20px","color":"#CFCAC0","fontSize":"14px","display":"flex","flexDirection":"column","gap":"14px","background":"#18181B"}}>
   <div>Stored per review: the plan, every agent step, suppressed findings, verified patches, the critic's disagreements and each human decision.</div>
   <div>
     <button
       type="button"
       onClick={handleContinueInWorkspace}
       className="neo-btn"
-      style={{"background":"#3B66FF","color":"#FFFFFF","padding":"10px 18px","border":"2px solid #FFFFFF","boxShadow":"3px 3px 0 #FFFFFF","fontWeight":"700","fontSize":"14px","textDecoration":"none","display":"inline-flex","alignItems":"center","gap":"6px","cursor":"pointer"}}
+      style={{"background":"#2447FF","color":"#FFFFFF","padding":"10px 18px","border":"1.5px solid #FFFFFF","boxShadow":"3px 3px 0 #FFFFFF","fontWeight":"700","fontSize":"14px","textDecoration":"none","display":"inline-flex","alignItems":"center","gap":"6px","cursor":"pointer"}}
     >
       Continue in Workspace →
     </button>
@@ -1098,85 +1406,105 @@ VERITY
           onClick={() => setActiveView("workspace")}
           className="neo-btn"
           style={{
-            "background": activeView === "workspace" ? "#3B66FF" : "transparent",
+            "background": activeView === "workspace" ? "#2447FF" : "transparent",
             "color": activeView === "workspace" ? "#FFFFFF" : "#CFCAC0",
-            "border": activeView === "workspace" ? "2px solid #111111" : "2px solid transparent",
+            "border": activeView === "workspace" ? "1.5px solid #0E0E10" : "1.5px solid transparent",
             "boxShadow": activeView === "workspace" ? "2px 2px 0 #000000" : "none",
             "padding": "8px 14px",
             "fontSize": "13px",
             "fontWeight": "700",
-            "cursor": "pointer"
+            "cursor": "pointer",
+            "display": "inline-flex",
+            "alignItems": "center",
+            "gap": "8px"
           }}
         >
-          ⚡ Audit Workspace
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          Audit Workspace
         </button>
         <button
           type="button"
           onClick={() => setActiveView("canon")}
           className="neo-btn"
           style={{
-            "background": activeView === "canon" ? "#3B66FF" : "transparent",
+            "background": activeView === "canon" ? "#2447FF" : "transparent",
             "color": activeView === "canon" ? "#FFFFFF" : "#CFCAC0",
-            "border": activeView === "canon" ? "2px solid #111111" : "2px solid transparent",
+            "border": activeView === "canon" ? "1.5px solid #0E0E10" : "1.5px solid transparent",
             "boxShadow": activeView === "canon" ? "2px 2px 0 #000000" : "none",
             "padding": "8px 14px",
             "fontSize": "13px",
             "fontWeight": "700",
-            "cursor": "pointer"
+            "cursor": "pointer",
+            "display": "inline-flex",
+            "alignItems": "center",
+            "gap": "8px"
           }}
         >
-          📜 Brand Canon (v{canonVersion})
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+          Brand Canon (v{canonVersion})
         </button>
         <button
           type="button"
           onClick={() => setActiveView("history")}
           className="neo-btn"
           style={{
-            "background": activeView === "history" ? "#3B66FF" : "transparent",
+            "background": activeView === "history" ? "#2447FF" : "transparent",
             "color": activeView === "history" ? "#FFFFFF" : "#CFCAC0",
-            "border": activeView === "history" ? "2px solid #111111" : "2px solid transparent",
+            "border": activeView === "history" ? "1.5px solid #0E0E10" : "1.5px solid transparent",
             "boxShadow": activeView === "history" ? "2px 2px 0 #000000" : "none",
             "padding": "8px 14px",
             "fontSize": "13px",
             "fontWeight": "700",
-            "cursor": "pointer"
+            "cursor": "pointer",
+            "display": "inline-flex",
+            "alignItems": "center",
+            "gap": "8px"
           }}
         >
-          📊 History ({historyItems.length})
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          History ({historyItems.length})
         </button>
         <button
           type="button"
           onClick={() => setActiveView("policypulse")}
           className="neo-btn"
           style={{
-            "background": activeView === "policypulse" ? "#3B66FF" : "transparent",
+            "background": activeView === "policypulse" ? "#2447FF" : "transparent",
             "color": activeView === "policypulse" ? "#FFFFFF" : "#CFCAC0",
-            "border": activeView === "policypulse" ? "2px solid #111111" : "2px solid transparent",
+            "border": activeView === "policypulse" ? "1.5px solid #0E0E10" : "1.5px solid transparent",
             "boxShadow": activeView === "policypulse" ? "2px 2px 0 #000000" : "none",
             "padding": "8px 14px",
             "fontSize": "13px",
             "fontWeight": "700",
-            "cursor": "pointer"
+            "cursor": "pointer",
+            "display": "inline-flex",
+            "alignItems": "center",
+            "gap": "8px"
           }}
         >
-          🎯 PolicyPulse
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="2"></circle><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"></path></svg>
+          PolicyPulse
         </button>
         <button
           type="button"
           onClick={() => setActiveView("eval")}
           className="neo-btn"
           style={{
-            "background": activeView === "eval" ? "#3B66FF" : "transparent",
+            "background": activeView === "eval" ? "#2447FF" : "transparent",
             "color": activeView === "eval" ? "#FFFFFF" : "#CFCAC0",
-            "border": activeView === "eval" ? "2px solid #111111" : "2px solid transparent",
+            "border": activeView === "eval" ? "1.5px solid #0E0E10" : "1.5px solid transparent",
             "boxShadow": activeView === "eval" ? "2px 2px 0 #000000" : "none",
             "padding": "8px 14px",
             "fontSize": "13px",
             "fontWeight": "700",
-            "cursor": "pointer"
+            "cursor": "pointer",
+            "display": "inline-flex",
+            "alignItems": "center",
+            "gap": "8px"
           }}
         >
-          🔬 Evaluation Suite
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 2v7.31"></path><path d="M14 9.3V2"></path><path d="M8.5 2h7"></path><path d="M14 9.3a6.5 6.5 0 1 1-4 0"></path><path d="M5.52 16h12.96"></path></svg>
+          Evaluation Suite
         </button>
       </div>
     </div>
@@ -1291,8 +1619,59 @@ VERITY
           </div>
         </div>
 
+        {/* Multi-Agent Sequential Pipeline HUD */}
+        {loading && (
+          <div style={{"background":"#0E0E10","border":"1.5px solid #2447FF","boxShadow":"4px 4px 0 #2447FF","padding":"20px","fontFamily":"'JetBrains Mono', monospace","marginTop":"12px"}}>
+            <div style={{"display":"flex","justifyContent":"space-between","alignItems":"center","marginBottom":"14px","borderBottom":"1px solid #27272A","paddingBottom":"8px","flexWrap":"wrap","gap":"8px"}}>
+              <span style={{"color":"#2447FF","fontWeight":"700","fontSize":"12px"}}>MULTI-AGENT PIPELINE ENGAGED // AUDITING WORKSPACE</span>
+              <span style={{"color":"#22C55E","fontSize":"11px","background":"rgba(34,197,94,0.1)","padding":"2px 8px","border":"1px solid #22C55E"}}>HARD BUDGET: ≤ 2 LLM CALLS</span>
+            </div>
+            <div style={{"display":"grid","gridTemplateColumns":"repeat(auto-fit, minmax(200px, 1fr))","gap":"10px"}}>
+              {[
+                { stage: 1, title: "01 ORCHESTRATOR", desc: "Decomposing claims & setting budget" },
+                { stage: 2, title: "02 SPECIALISTS", desc: "FactVerifier & BrandVoice dispatch" },
+                { stage: 3, title: "03 CRITIC CONSENSUS", desc: "Conflict resolution & invariant check" },
+                { stage: 4, title: "04 INTENTLOCK", desc: "Re-verifying minimal patch offline" },
+              ].map((s) => {
+                const isActive = auditStepStage >= s.stage
+                const isCurrent = auditStepStage === s.stage
+                return (
+                  <div
+                    key={s.stage}
+                    style={{
+                      "padding":"10px 12px",
+                      "background": isCurrent ? "#18181B" : "#0E0E10",
+                      "border": isCurrent ? "1.5px solid #2447FF" : "1px solid #27272A",
+                      "color": isActive ? "#F4F2EC" : "#71717A"
+                    }}
+                  >
+                    <div style={{"display":"flex","alignItems":"center","gap":"8px","fontWeight":"700","fontSize":"11px","color": isActive ? (isCurrent ? "#2447FF" : "#22C55E") : "#71717A"}}>
+                      <span>{isActive ? (isCurrent ? "▶" : "✓") : "○"}</span>
+                      <span>{s.title}</span>
+                    </div>
+                    <div style={{"fontSize":"11px","color":"#A1A1AA","marginTop":"4px"}}>{s.desc}</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Results Box */}
-        {result && (
+        {result && (() => {
+          const criticalViolations = (result.findings || []).filter((f: any) => 
+            f.severity === 'high' || f.category === 'Contradicted' || (f.rule && (f.rule.toLowerCase().includes('trial') || f.rule.toLowerCase().includes('superlative')))
+          )
+          const criticalCount = criticalViolations.length
+          const isPassed = criticalCount === 0 && (result.score ?? 0) >= 90
+          const verdictText = criticalCount > 0 
+            ? `CRITICAL VIOLATIONS (${criticalCount} DETECTED)` 
+            : isPassed 
+              ? 'PASSED (CANON COMPLIANT)' 
+              : 'FLAGGED (ISSUES DETECTED)'
+          const verdictColor = criticalCount > 0 ? '#EF4444' : isPassed ? '#22C55E' : '#FACC15'
+
+          return (
           <div style={{"borderTop":"2px dashed #444","paddingTop":"24px","marginTop":"8px"}}>
             <div style={{"display":"flex","flexWrap":"wrap","justifyContent":"space-between","alignItems":"center","gap":"16px","marginBottom":"20px"}}>
               <div style={{"display":"flex","alignItems":"center","gap":"18px"}}>
@@ -1303,7 +1682,7 @@ VERITY
                     "fontWeight":"700",
                     "fontVariantNumeric":"tabular-nums",
                     "lineHeight":"1",
-                    "color": (result.score ?? 0) >= 90 ? '#7BE0A4' : (result.score ?? 0) >= 60 ? '#FFD166' : '#EF4444'
+                    "color": verdictColor
                   }}
                 >
                   {result.score ?? '--'}
@@ -1316,10 +1695,10 @@ VERITY
                     style={{
                       "fontWeight":"700",
                       "fontSize":"20px",
-                      "color": (result.score ?? 0) >= 90 ? '#7BE0A4' : (result.score ?? 0) >= 60 ? '#FFD166' : '#EF4444'
+                      "color": verdictColor
                     }}
                   >
-                    {(result.score ?? 0) >= 90 ? 'PASSED (CANON COMPLIANT)' : (result.score ?? 0) >= 60 ? 'FLAGGED (ISSUES DETECTED)' : 'CRITICAL VIOLATIONS'}
+                    {verdictText}
                   </div>
                 </div>
               </div>
@@ -1331,9 +1710,9 @@ VERITY
                     "fontSize":"12px",
                     "fontWeight":"600",
                     "padding":"6px 12px",
-                    "border":"1px solid #7BE0A4",
-                    "color":"#7BE0A4",
-                    "background":"rgba(123, 224, 164, 0.1)"
+                    "border":"1px solid #22C55E",
+                    "color":"#22C55E",
+                    "background":"rgba(34, 197, 94, 0.1)"
                   }}
                 >
                   {(result.llmCalls ?? result.llm_calls ?? 0) === 0 ? '⚡ 0 LLM calls · Resolved deterministically' : `🤖 ${result.llmCalls ?? result.llm_calls} LLM calls · Multi-agent consensus`}
@@ -1349,7 +1728,7 @@ VERITY
                     "background":"#1E1E1E"
                   }}
                 >
-                  Canon v{result.canonVersion ?? '1.0'}
+                  Canon v{result.canonVersion ?? canonVersion}
                 </span>
               </div>
             </div>
@@ -1725,7 +2104,8 @@ VERITY
               </div>
             </div>
           </div>
-        )}
+          )
+        })()}
       </div>
     )}
 

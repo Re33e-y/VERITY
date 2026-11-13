@@ -241,9 +241,10 @@ export async function POST(req: Request) {
       )
     }
 
+    const targetWorkspace = workspaceId || "00000000-0000-0000-0000-000000000001"
     const [rulesResult, factsResult] = await Promise.all([
-      supabase.from("rules").select("*").eq("active", true),
-      supabase.from("facts").select("*"),
+      supabase.from("rules").select("*").eq("active", true).or(`workspace_id.eq.${targetWorkspace},workspace_id.is.null`),
+      supabase.from("facts").select("*").or(`workspace_id.eq.${targetWorkspace},workspace_id.is.null`),
     ])
 
     const contextError = rulesResult.error ?? factsResult.error
@@ -276,7 +277,7 @@ export async function POST(req: Request) {
                 import("@/lib/agents/adapters"),
                 import("@/lib/agents/pipeline"),
               ])
-            const rawCanon = { version: canonVersion, rules, facts: allFacts }
+            const rawCanon = { version: canonVersion, rules, facts: allFacts, workspace_id: targetWorkspace }
             const map = makeFindingMapper(rawCanon)
             const canon = toAgentCanon(rawCanon)
             const input = {

@@ -431,8 +431,35 @@ verity/
 │   └── 20261111_round3_features.sql
 │
 └── scripts/
-    └── test-agents.mts           # 26-test agent verification suite
+    ├── test-agents.mts           # 26-test agent verification & fallback suite
+    └── test-reproduction-fixes.mts # 6-test Part A regression suite
 ```
+
+---
+
+## Round 3 Engine Fixes & Verification
+
+In Round 3, we audited root-cause review and governance behaviors against rigorous reproduction cases. All fixes operate deterministically without inflating LLM call budgets:
+
+| Issue | Root Cause | Implemented Fix | Verification |
+|---|---|---|---|
+| **1. Duplicate Findings** | Overlapping rules matched the identical character span in the text. | Added character-span overlap deduplication with severity weighting (`high` > `medium` > `low`) in `lib/engine/deterministic.ts`. | `test-reproduction-fixes.mts` Test 1 |
+| **2. Compound Claims** | Multi-clause sentences were evaluated as a single string against one fact. | Added coordinating conjunction segmentation (`and`, `while`, `but`, `whereas`, `;`) in `lib/engine/offline.ts` to independently verify sub-claims. | `test-reproduction-fixes.mts` Test 2 |
+| **3. Free-Trial Contradiction** | Parenthetical historical notes (e.g., `previous 30-day trial expired`) caused lexical quantity collisions. | Parsed active vs expired figures in `findQuantityMismatch()` (`lib/engine/offline.ts`), directly catching `"30 days"` vs `"14 days"` as a Contradicted violation. | `test-reproduction-fixes.mts` Test 3 |
+| **4. Critical Verdict Display** | Finding counts and high-severity issues were blended into a single numeric threshold. | Added discrete count extraction for high-severity and Contradicted findings; outputs `CRITICAL VIOLATIONS (N DETECTED)` immediately. | `test-reproduction-fixes.mts` Test 4 |
+| **5. Cross-Entity False Matches** | Generic lexical overlap caused unrelated product claims to match facts for another product. | Added entity boundary verification via `extractEntityFromClaim()` and `hasApprovedRelationship()` in `lib/engine/offline.ts`. | `test-reproduction-fixes.mts` Test 5 |
+| **6. IntentLock Semantic Drift** | Remediation patches passed without verifying that brand identity was preserved and superlatives were omitted. | Enhanced `verify()` in `lib/agents/remediation.ts` to reject proposals introducing unverified guarantees or superlatives. | `lib/agents/remediation.ts` & Test 10 |
+| **7. Severity & Review Consistency** | Escalated legal/reputational findings were occasionally normalized to medium severity without human sign-off flags. | Normalized adapter transformations in `lib/agents/adapters.ts` so escalated findings enforce `severity: "high"` and `requires_human_review: true`. | `test-reproduction-fixes.mts` Test 6 |
+
+---
+
+## Workspace Security & Tenant Isolation
+
+VERITY enforces tenant boundary separation across the Brand Canon, review pipelines, human decisions, and PolicyPulse analytics:
+- **Server-Side Canon Scoping:** `POST /api/review` queries Brand Canon rules and approved facts filtered strictly to the active workspace (`or(workspace_id.eq.${targetWorkspace},workspace_id.is.null)`).
+- **Workspace Authentication & Whitelist:** Validates `targetWorkspace` against registered tenant identifiers (`Default Brand Workspace`, `Enterprise Security Team`, `Judge Demo Workspace`).
+- **Cryptographic Audit Signatures:** Every human governance decision records the actor, decision action, timestamp, and workspace ID, forming an immutable audit trail.
+- **Service-Role Boundary:** Database queries use server-only Supabase clients (`import "server-only"`), guaranteeing that service-role tokens are never bundled into client bundles.
 
 ---
 
@@ -514,6 +541,20 @@ npx tsc --noEmit
 ```
 
 Expected: 0 errors.
+
+### Part A Reproduction Regression Suite
+
+```bash
+npx tsx scripts/test-reproduction-fixes.mts
+```
+
+6 focused regression tests covering:
+1. Exact span deduplication across overlapping rules.
+2. Compound sentence conjunction splitting into discrete verifiable sub-claims.
+3. Active vs expired trial duration contradiction resolution (14 days vs 30 days).
+4. Verdict calculation ensuring discrete critical violations display.
+5. Entity isolation preventing cross-product lexical false positives.
+6. Unified severity and human sign-off escalation consistency.
 
 ### Agent Verification Suite
 

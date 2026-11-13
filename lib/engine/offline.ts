@@ -1,4 +1,5 @@
 import type { Fact, Finding, Rule, Verdict } from "@/types/engine"
+import { extractEntityFromClaim, hasApprovedRelationship } from "@/lib/agents/entities"
 
 type KeywordFact = Fact & { keywords?: string[] | null }
 type Sentence = { text: string; start: number; end: number }
@@ -45,6 +46,50 @@ function splitSentences(text: string): Sentence[] {
     }
   }
   return result
+}
+
+/**
+ * Compound sentence splitting:
+ * When a sentence contains coordinating clauses joined by "and", "while", "but", ";",
+ * and both clauses have independent claim signals, split them into distinct claim units
+ * so both factual claims are independently evaluated.
+ */
+function splitCompoundClaims(sentence: Sentence): Sentence[] {
+  const compoundRegex = /\s*(?:;\s*|,\s*(?:and|while|but|whereas)\s+|\s+(?:and|while|but|whereas)\s+)\s*/gi
+  const parts: Sentence[] = []
+  let lastIndex = 0
+
+  for (const match of sentence.text.matchAll(compoundRegex)) {
+    if (match.index === undefined) continue
+    const clauseText = sentence.text.slice(lastIndex, match.index).trim()
+    if (clauseText.length > 10 && CLAIM_SIGNAL_PATTERN.test(clauseText)) {
+      const start = sentence.start + lastIndex
+      parts.push({
+        text: clauseText,
+        start,
+        end: start + clauseText.length,
+      })
+      lastIndex = match.index + match[0].length
+    }
+  }
+
+  const remainder = sentence.text.slice(lastIndex).trim()
+  if (remainder.length > 10 && CLAIM_SIGNAL_PATTERN.test(remainder)) {
+    const start = sentence.start + lastIndex
+    parts.push({
+      text: remainder,
+      start,
+      end: start + remainder.length,
+    })
+  }
+
+  // If compound splitting yielded 2 or more distinct claim clauses, return them
+  if (parts.length >= 2) {
+    return parts
+  }
+
+  // Otherwise keep the original full sentence
+  return [sentence]
 }
 
 const DAYS_IN_UNIT: Record<string, number> = {
@@ -100,12 +145,41 @@ function formatQuantity(quantity: Quantity) {
   return `amount ${quantity.value}`
 }
 
+interface FactQuantities {
+  active: Quantity[]
+  expired: Quantity[]
+}
+
+function parseFactQuantities(statement: string): FactQuantities {
+  const expiredMatch = statement.match(/\((?:previous|prior|formerly|expired)[^)]*\)/gi)
+  const expiredText = expiredMatch ? expiredMatch.join(" ") : ""
+  const activeText = statement.replace(/\((?:previous|prior|formerly|expired)[^)]*\)/gi, "")
+
+  return {
+    active: quantities(activeText),
+    expired: quantities(expiredText),
+  }
+}
+
 function findQuantityMismatch(
   claimQuantities: Quantity[],
-  factQuantities: Quantity[]
-): string | null {
+  factQuantities: FactQuantities
+): { isMismatch: boolean; detail: string; isExpiredClaim?: boolean } | null {
   for (const claim of claimQuantities) {
-    const comparable = factQuantities.filter(
+    // 1. Check if the claim specifically asserts an expired or superseded figure (e.g., 30-day trial)
+    const matchesExpired = factQuantities.expired.some(
+      (exp) => exp.kind === claim.kind && Math.abs(exp.value - claim.value) < 1e-9
+    )
+    if (matchesExpired && factQuantities.active.length > 0) {
+      return {
+        isMismatch: true,
+        detail: `claim cites expired figure of ${formatQuantity(claim)}, whereas approved Canon specifies ${formatQuantity(factQuantities.active[0])}`,
+        isExpiredClaim: true,
+      }
+    }
+
+    // 2. Check active quantities
+    const comparable = factQuantities.active.filter(
       (fact) =>
         fact.kind === claim.kind &&
         (claim.kind !== "count" || fact.unit === claim.unit)
@@ -114,7 +188,10 @@ function findQuantityMismatch(
       comparable.length > 0 &&
       !comparable.some((fact) => Math.abs(fact.value - claim.value) < 1e-9)
     ) {
-      return `claim says ${formatQuantity(claim)}, approved source says ${formatQuantity(comparable[0])}`
+      return {
+        isMismatch: true,
+        detail: `claim says ${formatQuantity(claim)}, approved source says ${formatQuantity(comparable[0])}`,
+      }
     }
   }
   return null
@@ -163,10 +240,25 @@ function bestFact(
 ) {
   const sentenceTokens = new Set(tokens(sentence))
   const lowerSentence = sentence.toLowerCase()
+  const claimEntity = extractEntityFromClaim(sentence)
   let best: { fact: KeywordFact; score: number } | null = null
 
   for (let factIndex = 0; factIndex < facts.length; factIndex++) {
     const fact = facts[factIndex]
+
+    // Entity alignment check: if the claim specifies an entity and the fact has an entity,
+    // verify they are compatible products before allowing generic token matching.
+    if (claimEntity.entity && !claimEntity.isAmbiguous) {
+      const factEntity = extractEntityFromClaim(fact.statement)
+      if (factEntity.entity && !factEntity.isAmbiguous) {
+        const approved = hasApprovedRelationship(claimEntity.entity, factEntity.entity)
+        if (!approved) {
+          // Different product entities (e.g. NovaPay vs ProofGate Pro) — skip matching
+          continue
+        }
+      }
+    }
+
     let score = 0
     for (const token of sentenceTokens) {
       if (index.documents[factIndex].has(token)) {
@@ -340,18 +432,22 @@ export function runOfflineEngine(
     )
   }
 
-  for (const sentence of reviewableSentences) {
-    if (sentence.text.endsWith("?") || !CLAIM_SIGNAL_PATTERN.test(sentence.text)) {
+  // Evaluate factual claims (with compound sentence clause awareness)
+  const claimUnits: Sentence[] = reviewableSentences.flatMap((sentence) =>
+    splitCompoundClaims(sentence)
+  )
+
+  for (const unit of claimUnits) {
+    if (unit.text.endsWith("?") || !CLAIM_SIGNAL_PATTERN.test(unit.text)) {
       continue
     }
 
-    const matched = bestFact(sentence.text, keywordFacts, factIndex)
-    const mismatch = matched
-      ? findQuantityMismatch(
-          quantities(sentence.text),
-          quantities(matched.fact.statement)
-        )
+    const matched = bestFact(unit.text, keywordFacts, factIndex)
+    const factParsed = matched ? parseFactQuantities(matched.fact.statement) : null
+    const mismatch = factParsed
+      ? findQuantityMismatch(quantities(unit.text), factParsed)
       : null
+
     const addClaimFinding = (
       verdict: Verdict,
       grade: Finding["grade"],
@@ -359,7 +455,7 @@ export function runOfflineEngine(
       explanation: string
     ) => {
       findings.push(
-        makeFinding(sentence.start, sentence.end, {
+        makeFinding(unit.start, unit.end, {
           verdict,
           grade,
           severity,
@@ -376,12 +472,20 @@ export function runOfflineEngine(
         "medium",
         `${matched.fact.code} expired on ${matched.fact.expires_at?.slice(0, 10)}. The approved source is out of date.`
       )
-    } else if (LEGAL_PATTERN.test(sentence.text)) {
+    } else if (mismatch?.isExpiredClaim) {
+      // Direct detection of expired claim assertion (e.g. 30 days vs active 14 days)
+      addClaimFinding(
+        "Contradicted",
+        "A",
+        "high",
+        `Conflicts with ${matched!.fact.code} ("${matched!.fact.statement}"): ${mismatch.detail}.`
+      )
+    } else if (LEGAL_PATTERN.test(unit.text)) {
       addClaimFinding(
         "Needs legal review",
         "C",
         "high",
-        `Numbers, finance, health or legal-sounding claim. Always routed to a human.${matched && mismatch ? ` It also conflicts with ${matched.fact.code}: ${mismatch}.` : ""}`
+        `Numbers, finance, health or legal-sounding claim. Always routed to a human.${matched && mismatch ? ` It also conflicts with ${matched.fact.code}: ${mismatch.detail}.` : ""}`
       )
     } else if (!matched) {
       addClaimFinding(
@@ -395,11 +499,11 @@ export function runOfflineEngine(
         "Contradicted",
         "A",
         "high",
-        `Conflicts with ${matched.fact.code} ("${matched.fact.statement}"): ${mismatch}.`
+        `Conflicts with ${matched.fact.code} ("${matched.fact.statement}"): ${mismatch.detail}.`
       )
     } else if (
       matched.score >= STRONG_MATCH &&
-      polarity(sentence.text) !== polarity(matched.fact.statement)
+      polarity(unit.text) !== polarity(matched.fact.statement)
     ) {
       addClaimFinding(
         "Contradicted",

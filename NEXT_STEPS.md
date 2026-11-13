@@ -1,12 +1,13 @@
 # NEXT STEPS — VERITY
 
 ## Current Status
-- **Current Stage**: Round 3 Feature Delivery & Functional Workspaces Complete
-- **Last Completed Task**: Functional workspace scoping implemented for Canon, History, PolicyPulse, and Proposals with dedicated endpoints and DB migrations.
+- **Current Stage**: Round 3 Engine Bug Fixes, Multi-Workspace Scoping & Neo-Brutalist Polish Complete
+- **Last Completed Task**: Resolved 7 root-cause review/engine reproduction bugs, implemented server-side workspace-scoped review queries, added Part A regression test suite, polished neo-brutalist UI across all landing page sections, and achieved clean Next.js production build.
 - **Verification Status**:
   - `npx tsc --noEmit` — 0 errors
+  - `npx tsx scripts/test-reproduction-fixes.mts` — 6/6 tests passed
   - `npx tsx scripts/test-agents.mts` — 26/26 tests passed
-  - `npm run build` — 14/14 static and dynamic routes compiled cleanly
+  - `npm run build` — 13/13 static and dynamic routes compiled cleanly (exit code 0)
 
 ## Readiness Assessment
 - **Production Status**: READY FOR JUDGES

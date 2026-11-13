@@ -29,6 +29,8 @@ export function applyPatches(text: string, patches: Pick<Patch, "start" | "end" 
   return out;
 }
 
+const INTENT_LOCK_SUPERLATIVES = /\b(?:100%|unbeatable|best-in-class|#1|number one|never fails|zero risk|flawless|perfect|completely unhackable)\b/i;
+
 async function verify(
   text: string,
   f: Finding,
@@ -37,9 +39,19 @@ async function verify(
   canon: Canon,
 ): Promise<{ ok: boolean; why: string; failedFinding?: Finding }> {
   const r = replacement.trim();
-  if (!r) return { ok: false, why: "empty replacement" };
-  if (r === f.quote.trim()) return { ok: false, why: "replacement is identical to the original" };
-  if (r.length > f.quote.length * 2 + 120) return { ok: false, why: "replacement is much longer than the original" };
+  if (!r) return { ok: false, why: "IntentLock: empty replacement" };
+  if (r === f.quote.trim()) return { ok: false, why: "IntentLock: replacement is identical to the original" };
+  if (r.length > f.quote.length * 2 + 120) return { ok: false, why: "IntentLock: replacement exceeds length envelope (+120 chars)" };
+
+  // IntentLock Rule 1: Cannot inject new unverified superlatives or guarantees
+  if (!INTENT_LOCK_SUPERLATIVES.test(f.quote) && INTENT_LOCK_SUPERLATIVES.test(r)) {
+    return { ok: false, why: "IntentLock: replacement introduces unverified superlative or guarantee" };
+  }
+
+  // IntentLock Rule 2: Cannot replace brand entity with a non-existent or hallucinated entity
+  if (f.quote.includes("ProofGate") && !r.includes("ProofGate") && !r.includes("our platform") && !r.includes("the product")) {
+    return { ok: false, why: "IntentLock: replacement stripped canonical brand identity" };
+  }
 
   const patched = text.slice(0, f.start) + r + text.slice(f.end);
   const after = await runOffline(patched, canon);
